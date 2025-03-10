@@ -1,0 +1,1 @@
+qemu-system-loongarch64 -nographic -machine virt -m 256M -kernel rtthread.elf -s -S 

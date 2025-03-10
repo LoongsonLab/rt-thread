@@ -218,6 +218,28 @@ config ARCH_CSKY
 config ARCH_POWERPC
     bool
 
+config ARCH_LOONGARCH
+    bool
+
+config ARCH_LOONGARCH_FPU
+    bool
+
+config ARCH_LOONGARCH_FPU_S
+    select ARCH_LOONGARCH_FPU
+    bool
+
+config ARCH_LOONGARCH_FPU_D
+    select ARCH_LOONGARCH_FPU
+    bool
+
+config ARCH_LOONGARCH_SIMD
+    bool
+
+config ARCH_LOONGARCH64
+    select ARCH_LOONGARCH
+    select ARCH_CPU_64BIT
+    bool
+
 config ARCH_RISCV
     bool
 
