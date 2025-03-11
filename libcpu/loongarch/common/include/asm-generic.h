@@ -10,17 +10,27 @@
 #ifndef __ASM_GENERIC_H__
 #define __ASM_GENERIC_H__
 
+
+#ifdef __loongarch64
+    #define LONG_ADD    add.d
+    #define LONG_ADDI   addi.d
+    #define LONG_STUB   sub.d
+    #define LONG_LD     ld.d
+    #define LONG_ST     st.d
+    #define LONG_FLD    fld.d
+    #define LONG_FST    fst.d
+#else
+    #error "Now, RT-Thread only suport LoongArch64"
+#endif
+
+
 /* use to mark a start point where every task start from */
 #define START_POINT(funcname)               \
     .global funcname;                       \
     .type funcname, %function;	            \
-    funcname:                               \
-    .cfi_sections .debug_frame, .eh_frame;  \
-    .cfi_startproc;                         \
-    .cfi_undefined ra
+    funcname:
 
 #define START_POINT_END(name)   \
-    .cfi_endproc;               \
     .size name, .-name;
 
 #endif /* __ASM_GENERIC_H__ */

@@ -1,27 +1,57 @@
 
+#include "asm-offsets.h"
+#include "asm-generic.h"
+#include "stackframe.h"
 
 
+.section ".text", "ax"
 
-.global rt_hw_stack_init
-rt_hw_stack_init:
-    jirl		$zero, $ra, 0
-
-
-.global rt_hw_context_switch_interrupt
-rt_hw_context_switch_interrupt:
-    jirl		$zero, $ra, 0
-
-
-.global rt_hw_context_switch
+/*
+ * void rt_hw_context_switch(rt_uint32 from, rt_uint32 to)
+ * a0 --> from
+ * a1 --> to
+ */
+.globl rt_hw_context_switch
 rt_hw_context_switch:
-    jirl		$zero, $ra, 0
+    addi.d   sp, sp, -RT_THREAD_END
+    cpu_save_csr_reg sp
+    cpu_save_nonscratch sp
+    LONG_ST  ra, sp, RT_THREAD_RA
+    LONG_ST  sp, a0, 0
+
+    LONG_LD  sp, a1, 0
+    move     t0, sp
+
+    bl  rt_thread_self
+
+#ifdef RT_USING_SMART
+    bl  lwp_aspace_switch
+#endif
+    cpu_restore_nonscratch sp
+    cpu_restore_csr_reg sp
+    #cpu_restore_sp sp
+    jr   ra
 
 
-
+/*
+ * void rt_hw_context_switch_to(rt_ubase_t to);
+ *
+ * a0 --> to SP pointer
+ */
 .global rt_hw_context_switch_to
 rt_hw_context_switch_to:
-    jirl		$zero, $ra, 0
+    LONG_LD  sp, a0, 0
+    move     t0, sp
 
+    bl  rt_thread_self
+
+#ifdef RT_USING_SMART
+    bl  lwp_aspace_switch
+#endif
+    cpu_restore_nonscratch sp
+    cpu_restore_csr_reg sp
+    #cpu_restore_sp sp
+    jr   ra
 
 
 .global cpu_idle

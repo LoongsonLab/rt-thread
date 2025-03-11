@@ -7,7 +7,7 @@
 #define _ASM_ASM_OFFSETS_H
 
 
-#ifdef ARCH_CPU_64BIT
+#ifdef __loongarch64
 	#define LONGSIZE	8
     #define LONGMASK	7
     #define LONGLOG		3
@@ -26,9 +26,9 @@
 #define PT_R9      (9  * LONGSIZE)    
 #define PT_R10     (10 * LONGSIZE)  
 #define PT_R11     (11 * LONGSIZE)  
-#define PT_R12     (12 * LONGSIZE)  
-#define PT_R13     (13 * LONGSIZE) 
-#define PT_R14     (14 * LONGSIZE) 
+#define PT_R12     (12 * LONGSIZE)  // r12 -> t0
+#define PT_R13     (13 * LONGSIZE)  // r13 -> t1
+#define PT_R14     (14 * LONGSIZE)  // r14 -> t2
 #define PT_R15     (15 * LONGSIZE) 
 #define PT_R16     (16 * LONGSIZE) 
 #define PT_R17     (17 * LONGSIZE) 
@@ -46,21 +46,41 @@
 #define PT_R29     (29 * LONGSIZE) 
 #define PT_R30     (30 * LONGSIZE) 
 #define PT_R31     (31 * LONGSIZE) 
+#define PT_CRMD    (32 * LONGSIZE)
+#define PT_PRMD    (33 * LONGSIZE)
+#define PT_EUEN    (34 * LONGSIZE)
+#define PT_ESTAT   (35 * LONGSIZE)
+#define PT_ERA     (36 * LONGSIZE)
+#define PT_BVADDR  (37 * LONGSIZE)
+#define PT_ECFG    (38 * LONGSIZE)
 
-#define PT_CRMD     (32 * LONGSIZE)
-#define PT_PRMD     (33 * LONGSIZE)
-#define PT_EUEN     (34 * LONGSIZE)
-#define PT_ESTAT    (35 * LONGSIZE)
-#define PT_ERA      (36 * LONGSIZE)
-#define PT_BVADDR   (37 * LONGSIZE)
+#define PT_REG_END	(PT_ECFG + LONGSIZE)
 
-#define PT_REG_END	(PT_BVADDR + LONGSIZE)
+#define PT_SIZE     PT_REG_END
 
+#define PT_SWITCH_FRAME_SIZE (16 * LONGSIZE)
 
+// use for context switch
+#define RT_THREAD_RA    (0 * LONGSIZE)
+#define RT_THREAD_S0    (1 * LONGSIZE)
+#define RT_THREAD_S1    (2 * LONGSIZE)
+#define RT_THREAD_S2    (3 * LONGSIZE)
+#define RT_THREAD_S3    (4 * LONGSIZE)
+#define RT_THREAD_S4    (5 * LONGSIZE)
+#define RT_THREAD_S5    (6 * LONGSIZE)
+#define RT_THREAD_S6    (7 * LONGSIZE)
+#define RT_THREAD_S7    (8 * LONGSIZE)
+#define RT_THREAD_S8    (9 * LONGSIZE)
+#define RT_THREAD_FP    (10 * LONGSIZE)
+#define RT_THREAD_TP    (11 * LONGSIZE)
+#define RT_THREAD_SP    (12 * LONGSIZE)
+#define RT_THREAD_PRMD  (13 * LONGSIZE)
+#define RT_THREAD_FCSR  (14 * LONGSIZE)
+#define RT_THREAD_FCC   (15 * LONGSIZE)
 
+#define RT_THREAD_END   (RT_THREAD_FCC + LONGSIZE)
 
-
-
+#define DEFAULT_THREAD_PRMD 0x0
 
 
 

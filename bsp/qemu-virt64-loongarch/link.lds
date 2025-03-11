@@ -15,7 +15,7 @@ OUTPUT_ARCH(loongarch)
 
 /*
  * Memory layout:
- * 0x80200000 - 0x81200000: Kernel
+ * 0x00200000 - 0x01200000: Kernel
  */
 
 MEMORY
@@ -148,7 +148,7 @@ SECTIONS
         *(.bss.*)
         *(.dynbss)
         *(COMMON)
-    
+
     . = ALIGN(8);
     __bss_end = .;
     } > SRAM

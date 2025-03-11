@@ -12,7 +12,7 @@ VERBOSE :=
 endif
 
 all:
-	scons $(VERBOSE)
+	scons -j 6 $(VERBOSE)
 	loongarch64-linux-gnu-objdump -ald rtthread.elf > rtthread.elf.S
 
 run:
@@ -24,7 +24,7 @@ debug:
 	sleep 1
 	$(GNU_GDB)/bin/loongarch64-unknown-linux-gnu-gdb rtthread.elf \
 	  -ex 'target remote localhost:1234' \
-	  -ex 'b debug_trace0' \
+	  -ex 'b debug_trace' \
 	  -ex 'continue' \
 	  -ex 'disp /16i $$pc'
 

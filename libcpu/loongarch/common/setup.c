@@ -17,10 +17,11 @@ static unsigned long drdtime(void)
 	return val;
 }
 
+extern void trap_init(void);
 
 void init_cpu_early(void)
 {
-	
+	trap_init();
 }
 
 

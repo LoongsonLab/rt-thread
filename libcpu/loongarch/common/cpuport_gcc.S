@@ -1,0 +1,20 @@
+#include "cpuport.h"
+#include "stackframe.h"
+#include "asm-generic.h"
+#include "asm-offsets.h"
+
+START_POINT(_rt_thread_entry)
+    addi.d     sp, sp, PT_SWITCH_FRAME_SIZE
+	LONG_LD    ra, sp, PT_R14		/* thread exit */
+    LONG_LD    a0, sp, PT_R13       /* parameter */
+    LONG_LD    s0, sp, PT_R12       /* tentry */
+    move       s1, ra
+    /* jump to thread entry */
+    jirl       ra, s0, 0 
+    /* run thread exit rountine*/
+    jirl       zero, s1, 0
+1:  /* never here */
+	b          1b           
+START_POINT_END(_rt_thread_entry)
+
+

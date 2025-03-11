@@ -31,7 +31,15 @@
 
 #endif /* !__ASSEMBLY__ */
 
+#ifdef __ASSEMBLY__
+#define _ULCAST_ 
+#define __CONST64_(X,Y)	(X)
+#define _CONST64_(X)	__CONST64_(X, UL)
+#else 
 #define _ULCAST_ (unsigned long)
+#define __CONST64_(X,Y)	(X##Y)
+#define _CONST64_(X)	__CONST64_(X, UL)
+#endif
 
 /* Basic CSR registers */
 #define LOONGARCH_CSR_CRMD		0x0	/* Current mode info */
@@ -208,14 +216,6 @@
 
 #define DMW_PABITS	48
 
-#ifdef __ASSEMBLY__
-#define __CONST64_(X,Y)	(X)
-#define _CONST64_(X)	__CONST64_(X, UL)
-#else 
-#define __CONST64_(X,Y)	(X##Y)
-#define _CONST64_(X)	__CONST64_(X, UL)
-#endif
-
 
 /* Direct Map windows registers */
 #define LOONGARCH_CSR_DMWIN0		0x180	/* 64 direct map win0: MEM & IF */
@@ -296,6 +296,11 @@
 #define INT_IPI		12
 #define INT_NMI		13
 #define INT_AVEC	14
+
+/* ExcCodes corresponding to interrupts */
+#define EXCCODE_INT_NUM		(INT_AVEC + 1)
+#define EXCCODE_INT_START	64
+#define EXCCODE_INT_END		(EXCCODE_INT_START + EXCCODE_INT_NUM - 1)
 
 
 #endif /* _ASM_LOONGARCH_H */

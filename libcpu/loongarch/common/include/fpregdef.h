@@ -40,5 +40,9 @@
 #define fs6	$f30
 #define fs7	$f31
 
+#define fcsr0	$fcsr0
+#define fcsr1	$fcsr1
+#define fcsr2	$fcsr2
+#define fcsr3	$fcsr3
 
 #endif /* _ASM_FPREGDEF_H */

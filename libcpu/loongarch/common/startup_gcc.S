@@ -1,5 +1,4 @@
 
-
 #include "loongarch.h"
 #include "regdef.h"
 #include "rtconfig.h"
@@ -30,24 +29,21 @@ _start:
 	li.w	t0, 0x00		# FPE=0, SXE=0, ASXE=0, BTE=0
 	csrwr	t0, LOONGARCH_CSR_EUEN
 
-debug_trace0:
 	/* Clear BSS */
 	bl 		init_bss
 
-debug_trace1:
 	/* Save */ 
 	bl 		save_boot_args
 
-debug_trace2:
 	/* Clear Register */
 	bl		init_clear_regs
 
-debug_trace:
 	/* init stack */
 	la.pcrel	sp, __stack_end__
 
 	bl 		init_cpu_early
 
+debug_trace:
 	la.pcrel    t0, rtthread_startup
 	jirl        zero, t0, 0      
 
