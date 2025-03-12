@@ -11,8 +11,9 @@ START_POINT(_rt_thread_entry)
     move       s1, ra
     /* jump to thread entry */
     jirl       ra, s0, 0 
-    /* run thread exit rountine*/
+    /* run thread exit routine */
     jirl       zero, s1, 0
+
 1:  /* never here */
 	b          1b           
 START_POINT_END(_rt_thread_entry)

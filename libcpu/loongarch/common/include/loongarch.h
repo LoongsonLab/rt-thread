@@ -106,6 +106,51 @@
 #define  CSR_ESTAT_IS_WIDTH		15
 #define  CSR_ESTAT_IS			(_ULCAST_(0x7fff) << CSR_ESTAT_IS_SHIFT)
 
+#define  CSR_ESTAT_IS_IPI		(_ULCAST_(0x1000) << CSR_ESTAT_IS_SHIFT)
+#define  CSR_ESTAT_IS_TI		(_ULCAST_(0x800) << CSR_ESTAT_IS_SHIFT)
+#define  CSR_ESTAT_IS_PMC		(_ULCAST_(0x400) << CSR_ESTAT_IS_SHIFT)
+#define  CSR_ESTAT_IS_HW		(_ULCAST_(0x3fc) << CSR_ESTAT_IS_SHIFT)
+#define  CSR_ESTAT_IS_SW		(_ULCAST_(0x3) << CSR_ESTAT_IS_SHIFT)
+
+// CSR ECFG
+#define ECFG0_IM		0x00005fff
+#define ECFGB_SIP0		0
+#define ECFGF_SIP0		(_ULCAST_(1) << ECFGB_SIP0)
+#define ECFGB_SIP1		1
+#define ECFGF_SIP1		(_ULCAST_(1) << ECFGB_SIP1)
+#define ECFGB_IP0		2
+#define ECFGF_IP0		(_ULCAST_(1) << ECFGB_IP0)
+#define ECFGB_IP1		3
+#define ECFGF_IP1		(_ULCAST_(1) << ECFGB_IP1)
+#define ECFGB_IP2		4
+#define ECFGF_IP2		(_ULCAST_(1) << ECFGB_IP2)
+#define ECFGB_IP3		5
+#define ECFGF_IP3		(_ULCAST_(1) << ECFGB_IP3)
+#define ECFGB_IP4		6
+#define ECFGF_IP4		(_ULCAST_(1) << ECFGB_IP4)
+#define ECFGB_IP5		7
+#define ECFGF_IP5		(_ULCAST_(1) << ECFGB_IP5)
+#define ECFGB_IP6		8
+#define ECFGF_IP6		(_ULCAST_(1) << ECFGB_IP6)
+#define ECFGB_IP7		9
+#define ECFGF_IP7		(_ULCAST_(1) << ECFGB_IP7)
+#define ECFGB_PMC		10
+#define ECFGF_PMC		(_ULCAST_(1) << ECFGB_PMC)
+#define ECFGB_TIMER		11
+#define ECFGF_TIMER		(_ULCAST_(1) << ECFGB_TIMER)
+#define ECFGB_IPI		12
+#define ECFGF_IPI		(_ULCAST_(1) << ECFGB_IPI)
+#define ECFGF(hwirq)		(_ULCAST_(1) << hwirq)
+
+#define ESTATF_IP		0x00003fff
+
+
+#define set_csr_estat(val)	\
+	csr_xchg32(val, val, LOONGARCH_CSR_ESTAT)
+#define clear_csr_estat(val)	\
+	csr_xchg32(~(val), val, LOONGARCH_CSR_ESTAT)
+
+
 #define LOONGARCH_CSR_ERA		0x6	/* Exception return address */
 
 #define LOONGARCH_CSR_BADV		0x7	/* Bad virtual address */
@@ -301,6 +346,39 @@
 #define EXCCODE_INT_NUM		(INT_AVEC + 1)
 #define EXCCODE_INT_START	64
 #define EXCCODE_INT_END		(EXCCODE_INT_START + EXCCODE_INT_NUM - 1)
+
+
+#ifndef __ASSEMBLY__
+
+#define read_csr_asid()				csr_read32(LOONGARCH_CSR_ASID)
+#define write_csr_asid(val)			csr_write32(val, LOONGARCH_CSR_ASID)
+#define read_csr_ecfg()				csr_read32(LOONGARCH_CSR_ECFG)
+#define write_csr_ecfg(val)			csr_write32(val, LOONGARCH_CSR_ECFG)
+#define read_csr_estat()			csr_read32(LOONGARCH_CSR_ESTAT)
+#define write_csr_estat(val)		csr_write32(val, LOONGARCH_CSR_ESTAT)
+#define write_csr_tintclear(val)	csr_write32(val, LOONGARCH_CSR_TINTCLR)
+
+static inline unsigned long set_csr_ecfg(unsigned long set_val)
+{
+	unsigned long res, new_val;
+	res = read_csr_ecfg();
+	new_val = res | set_val;
+	write_csr_ecfg(new_val);
+	return res;
+}
+
+static inline unsigned long clear_csr_ecfg(unsigned long clear)
+{
+	unsigned long res, new_val;
+	res = read_csr_ecfg();
+	new_val = res & ~clear;
+	write_csr_ecfg(new_val);
+	return res;
+}
+
+#endif
+
+
 
 
 #endif /* _ASM_LOONGARCH_H */

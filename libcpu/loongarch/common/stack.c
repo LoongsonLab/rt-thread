@@ -42,7 +42,7 @@ rt_uint8_t *rt_hw_stack_init(void *tentry, void *parameter, rt_uint8_t *stack_ad
     rt_memset(frame, 0, sizeof(struct rt_hw_switch_frame));
     extern void _rt_thread_entry(void);
     frame->r_ra = (rt_ubase_t)_rt_thread_entry;
-    frame->r_prmd = DEFAULT_THREAD_PRMD;
+    frame->r_crmd = DEFAULT_THREAD_CRMD;
     return (void *)frame;
 }
 

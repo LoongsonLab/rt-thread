@@ -55,7 +55,9 @@
     START_POINT_END(handle_\exception)
 .endm
 
-    BUILD_HANDLER vint vint none
+/* handle interrupt */
+    BUILD_HANDLER vint rt_dispatch_trap none
+
     BUILD_HANDLER ade ade badv
     BUILD_HANDLER ale ale badv
     BUILD_HANDLER bce bce none
@@ -90,16 +92,31 @@ START_POINT_END(handle_sys)
 
 
 # Enable and Disable Interrupt
+/*
+ * void rt_hw_interrupt_enable(rt_base_t level);
+ *
+ * a0 --> to level
+ */
+# .global rt_hw_interrupt_enable
+# rt_hw_interrupt_enable:
+#     li.w     t0, CSR_CRMD_IE 
+#     csrxchg  t0, t0, LOONGARCH_CSR_CRMD   
+#     jirl	 zero, ra, 0
+
 .global rt_hw_interrupt_enable
-rt_hw_interrupt_enable:
-    li.w     t0, CSR_CRMD_IE 
-    csrxchg  t0, t0, LOONGARCH_CSR_CRMD   
-    jirl	 zero, ra, 0
+rt_hw_interrupt_enable: 
+    csrwr    a0, LOONGARCH_CSR_CRMD
+    jirl     zero, ra, 0
 
-
+/*
+ * rt_base_t rt_hw_interrupt_disable(void);
+ *
+ * a0 --> to rt_base_t
+ */
 .global rt_hw_interrupt_disable
 rt_hw_interrupt_disable:
+    move     a0, zero
     li.w     t0, CSR_CRMD_IE
-    csrxchg  zero, t0, LOONGARCH_CSR_CRMD
+    csrxchg  a0, t0, LOONGARCH_CSR_CRMD
     jirl	 zero, ra, 0
 

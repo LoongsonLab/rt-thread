@@ -22,7 +22,7 @@ typedef struct rt_hw_switch_frame
     rt_ubase_t r_fp;
     rt_ubase_t r_tp;
     rt_ubase_t r_sp;
-    rt_ubase_t r_prmd;
+    rt_ubase_t r_crmd;
     rt_ubase_t r_fcsr;
     rt_ubase_t r_fcc;
 } *rt_hw_switch_frame_t;
@@ -76,6 +76,6 @@ struct pt_regs
 };
 
 
-
+#define DEFAULT_THREAD_CRMD 0xb4
 
 #endif /* __ASM_STACK_H__ */

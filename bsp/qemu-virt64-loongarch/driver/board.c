@@ -13,6 +13,7 @@
 #include <rtdevice.h>
 
 #include "board.h"
+#include "timer.h"
 #include "drv_uart.h"
 
 
@@ -43,7 +44,9 @@ void rt_hw_board_init(void)
     rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
 #endif /* RT_USING_CONSOLE */
 
-    // rt_hw_tick_init();
+    rt_hw_timer_init();
+
+    rt_tick_sethook(RT_NULL);
 
 #ifdef RT_USING_COMPONENTS_INIT
     rt_components_board_init();

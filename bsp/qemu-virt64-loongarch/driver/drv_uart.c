@@ -150,7 +150,7 @@ int rt_hw_uart_init(void)
     serial->config = config;
     serial->config.baud_rate = UART_DEFAULT_BAUDRATE;
     uart->hw_base = (rt_ubase_t)uart0_base;
-    uart->irqno = 0x02;
+    uart->irqno = 0x7;
 
     rt_hw_serial_register(serial,
                           RT_CONSOLE_DEVICE_NAME,

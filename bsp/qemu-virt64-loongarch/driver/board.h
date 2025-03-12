@@ -13,6 +13,8 @@
 
 #include <rtconfig.h>
 
+#include "irq.h"
+
 extern unsigned int __bss_start;
 extern unsigned int __bss_end;
 

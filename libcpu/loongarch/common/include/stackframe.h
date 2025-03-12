@@ -185,8 +185,8 @@
 .endm
 
 .macro	cpu_save_csr_reg thread
-	csrrd	t1, LOONGARCH_CSR_PRMD
-	stptr.d	t1, \thread, RT_THREAD_PRMD
+	csrrd	t1, LOONGARCH_CSR_CRMD
+	stptr.d	t1, \thread, RT_THREAD_CRMD
 .endm
 
 
@@ -206,8 +206,8 @@
 .endm
 
 .macro	cpu_restore_csr_reg thread
-	ldptr.d	t1, \thread, RT_THREAD_PRMD
-	csrwr	t1, LOONGARCH_CSR_PRMD
+	ldptr.d	t1, \thread, RT_THREAD_CRMD
+	csrwr	t1, LOONGARCH_CSR_CRMD
 .endm
 
 .macro	cpu_restore_sp thread

@@ -13,6 +13,7 @@
  */
 .globl rt_hw_context_switch
 rt_hw_context_switch:
+    // adjust sp point to pt_regs
     addi.d   sp, sp, -RT_THREAD_END
     cpu_save_csr_reg sp
     cpu_save_nonscratch sp
@@ -27,9 +28,10 @@ rt_hw_context_switch:
 #ifdef RT_USING_SMART
     bl  lwp_aspace_switch
 #endif
+    # csrrd t0, LOONGARCH_CSR_CRMD
     cpu_restore_nonscratch sp
     cpu_restore_csr_reg sp
-    #cpu_restore_sp sp
+    # csrrd t0, LOONGARCH_CSR_CRMD
     jr   ra
 
 
@@ -48,9 +50,10 @@ rt_hw_context_switch_to:
 #ifdef RT_USING_SMART
     bl  lwp_aspace_switch
 #endif
+    # csrrd t0, LOONGARCH_CSR_CRMD
     cpu_restore_nonscratch sp
     cpu_restore_csr_reg sp
-    #cpu_restore_sp sp
+    # csrrd t0, LOONGARCH_CSR_CRMD
     jr   ra
 
 

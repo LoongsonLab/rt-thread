@@ -5,6 +5,8 @@
 #include <mmu.h>
 
 #include "loongarch.h"
+#include "stack.h"
+#include "timer.h"
 
 #define MAX_HANDLERS 128
 
@@ -114,53 +116,83 @@ void *exception_table[EXCCODE_INT_START] = {
 };
 
 
-void do_ade(void) 
+void do_ade(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_ade exception occurred!!!\n");
 	while(1);
 }
 
-void do_ale(void) 
+void do_ale(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_ale exception occurred!!!\n");
 	while(1);
 }
 
-void do_bce(void) 
+void do_bce(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_bce exception occurred!!!\n");
 	while(1);
 }
 
-void do_bp(void) 
+void do_bp(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_bp exception occurred!!!\n");
 	while(1);
 }
 
-void do_fpe(void) 
+void do_fpe(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_fpe exception occurred!!!\n");
 	while(1);
 }
 
-void do_fpu(void) 
+void do_fpu(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_fpu exception occurred!!!\n");
 	while(1);
 }
 
-void do_ri(void) 
+void do_ri(struct pt_regs *regs) 
 {
+	rt_uint64_t era, ra;
+	ra = regs->r_ra;
+	era = regs->r_era;
+	rt_kprintf("do_ri -> era : 0x%16lx\n, ra: 0x%16lx\n", era);
 	rt_kprintf("UN-handled do_ri exception occurred!!!\n");
 	while(1);
 }
 
 
-void do_vint(void) 
+void do_rt_dispatch_trap(struct pt_regs *regs) 
 {
-	rt_kprintf("UN-handled do_ri exception occurred!!!\n");
-	while(1);
+
+	rt_uint64_t estat;
+	estat = read_csr_estat() & CSR_ESTAT_IS;
+
+	if ((estat & CSR_ESTAT_IS_IPI))
+	{
+		rt_kprintf("---------- Enter Interrupt ----------\n");
+		rt_kprintf("      IPI Exception occurred!        \n");
+		return;
+	} else if ((estat & CSR_ESTAT_IS_TI))
+	{
+		rt_kprintf("---------- Enter Interrupt ----------\n");
+		// rt_kprintf("     Timer Exception occurred!       \n");
+		write_csr_tintclear(CSR_TINTCLR_TI);
+		rt_interrupt_enter();
+		rt_hw_timer_handler();
+		rt_interrupt_leave();
+		return;
+	} else if ((estat & CSR_ESTAT_IS_HW))
+	{
+		rt_kprintf("---------- Enter Interrupt ----------\n");
+		rt_kprintf("     Hardware Exception occurred!    \n");
+		return;
+	} else {
+		rt_kprintf("---------- Enter Interrupt ----------\n");
+		rt_kprintf("UN-handled rt_dispatch_trap exception occurred!!!\n");
+		while(1);
+	}
 }
 
 
@@ -180,7 +212,7 @@ static void setup_vint_size(unsigned int size)
 {
 	unsigned int vs;
 	//TODO:
-	vs = 7;
+	vs = size;
 	csr_xchg32(vs<<CSR_ECFG_VS_SHIFT, CSR_ECFG_VS, LOONGARCH_CSR_ECFG);
 }
 
@@ -214,6 +246,9 @@ void trap_init(void) {
 	/* Set exception vector handler */
 	for (i = EXCCODE_ADE; i <= EXCCODE_BTDIS; i++)
 		set_handler(i * VECSIZE, exception_table[i], VECSIZE);
+
+	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IPI | ECFGF_PMC);
+
 }
 
 
