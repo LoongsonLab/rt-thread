@@ -10,6 +10,7 @@
 
 #define MAX_HANDLERS 128
 
+#define DEBUG_TRAP_TRACE 0
 
 /* Exception and interrupt handler table */
 struct rt_irq_desc irq_desc[MAX_HANDLERS];
@@ -74,6 +75,35 @@ rt_isr_handler_t rt_hw_interrupt_install(int vector, rt_isr_handler_t handler,
     return old_handler;
 }
 
+rt_weak void platform_irq_init()
+{
+}
+
+rt_weak void platform_generic_irq()
+{
+	rt_uint64_t hw_irq_pending = (read_csr_estat() & CSR_ESTAT_IS_HW);
+	rt_uint64_t hw_irq_index = 0;
+
+	while (hw_irq_pending) {
+		rt_uint64_t bit = ffs(hw_irq_pending);
+		hw_irq_index = bit - 1 ;
+
+		irq_desc[hw_irq_index].handler(hw_irq_index, irq_desc[hw_irq_index].param);
+		hw_irq_pending &= ~(1UL << ( bit - 1));
+
+#ifdef RT_USING_INTERRUPT_INFO
+        rt_snprintf(irq_desc[hw_irq_index].name, RT_NAME_MAX - 1, "%s", name);
+        irq_desc[hw_irq_index].counter ++;
+#endif
+
+// #if DEBUG_TRAP_TRACE
+#if 1
+    	rt_kprintf("     Hardware Exception ID: %d\n", hw_irq_index);
+#endif
+	}
+}
+
+
 void rt_hw_interrupt_init()
 {
     /* Enable machine external interrupts. */
@@ -88,6 +118,8 @@ void rt_hw_interrupt_init()
         irq_desc[idx].counter = 0;
 #endif
     }
+
+    platform_irq_init();
 }
 
 // default function
@@ -99,15 +131,17 @@ static void rt_hw_exception_default_handle(void)
 void *exception_table[EXCCODE_INT_START] = {
 	[0 ... EXCCODE_INT_START - 1] = rt_hw_exception_default_handle,
 
+#ifdef RT_USING_SMART
 	[EXCCODE_TLBI]		= handle_tlb_load_ptw,
 	[EXCCODE_TLBL]		= handle_tlb_load_ptw,
 	[EXCCODE_TLBS]		= handle_tlb_store_ptw,
 	[EXCCODE_TLBM]		= handle_tlb_modify_ptw,
+	[EXCCODE_SYS]		= handle_sys,
+#endif
 
 	[EXCCODE_ADE]		= handle_ade,
 	[EXCCODE_ALE]		= handle_ale,
 	[EXCCODE_BCE]		= handle_bce,
-	[EXCCODE_SYS]		= handle_sys,
 	[EXCCODE_BP]		= handle_bp,
 	[EXCCODE_INE]		= handle_ri,
 	[EXCCODE_IPE]		= handle_ri,
@@ -171,18 +205,22 @@ void do_rt_dispatch_trap(struct pt_regs *regs)
 	rt_thread_t thread = rt_thread_self();
 
 	estat = read_csr_estat() & CSR_ESTAT_IS;
-
-	// rt_kprintf("Exception Thread: 0x%lx, pt_regs: 0x%lx\n", thread, regs);
-
+#if DEBUG_TRAP_TRACE
+	rt_kprintf("Exception Thread: 0x%lx, pt_regs: 0x%lx\n", thread, regs);
+#endif
 	if ((estat & CSR_ESTAT_IS_IPI))
 	{
+	#if DEBUG_TRAP_TRACE
 		rt_kprintf("---------- Enter Interrupt ----------\n");
 		rt_kprintf("      IPI Exception occurred!        \n");
-		return;
+	#endif
+		while (1);
 	} else if ((estat & CSR_ESTAT_IS_TI))
 	{
-		// rt_kprintf("---------- Enter Interrupt ----------\n");
-		// rt_kprintf("     Timer Exception occurred!       \n");
+	#if DEBUG_TRAP_TRACE
+		rt_kprintf("---------- Enter Interrupt ----------\n");
+		rt_kprintf("     Timer Exception occurred!       \n");
+	#endif
 		write_csr_tintclear(CSR_TINTCLR_TI);
 		rt_interrupt_enter();
 		rt_hw_timer_handler();
@@ -190,12 +228,20 @@ void do_rt_dispatch_trap(struct pt_regs *regs)
 		return;
 	} else if ((estat & CSR_ESTAT_IS_HW))
 	{
+		write_csr_estat(estat & ~CSR_ESTAT_IS_HW);
+		rt_interrupt_enter();
+		platform_generic_irq();
+		rt_interrupt_leave();
+	#if DEBUG_TRAP_TRACE
 		rt_kprintf("---------- Enter Interrupt ----------\n");
-		rt_kprintf("     Hardware Exception occurred!    \n");
+		rt_kprintf("     Hardware Exception occurred: 0x%lx\n", estat);
+	#endif
 		return;
 	} else {
+	#if DEBUG_TRAP_TRACE
 		rt_kprintf("---------- Enter Interrupt ----------\n");
 		rt_kprintf("UN-handled rt_dispatch_trap exception occurred!!!\n");
+	#endif
 		while(1);
 	}
 }
@@ -208,7 +254,7 @@ void do_rt_dispatch_trap(struct pt_regs *regs)
 #define SZ_64K		0x00010000
 #define VECSIZE     0x200
 
-long exception_handlers[VECSIZE * 128 / sizeof(long)] __attribute__((__aligned__(SZ_64K)));
+rt_align(SZ_64K) long exception_handlers[VECSIZE * 128 / sizeof(long)];
 
 unsigned long eentry;
 unsigned long tlbrentry;
@@ -252,7 +298,9 @@ void trap_init(void) {
 	for (i = EXCCODE_ADE; i <= EXCCODE_BTDIS; i++)
 		set_handler(i * VECSIZE, exception_table[i], VECSIZE);
 
-	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IPI | ECFGF_PMC);
+	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 |
+	             ECFGF_IP3 | ECFGF_IP4 | ECFGF_IP5 | ECFGF_IP6 | ECFGF_IP7 |
+		         ECFGF_IPI | ECFGF_PMC);
 
 }
 
