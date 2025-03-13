@@ -47,7 +47,8 @@ void rt_dispatch_syscall(struct pt_regs *regs)
 
 #else
 
-void rt_dispatch_syscall(struct pt_regs *regs) {
+void rt_dispatch_syscall(struct pt_regs *regs) 
+{
 	rt_kprintf("UN-IMPL Syscall %d occurred!!!\n", regs->r_a7);
 }
 

@@ -96,8 +96,8 @@ rt_weak void platform_generic_irq()
         irq_desc[hw_irq_index].counter ++;
 #endif
 
-// #if DEBUG_TRAP_TRACE
-#if 1
+#if DEBUG_TRAP_TRACE
+// #if 1
     	rt_kprintf("     Hardware Exception ID: %d\n", hw_irq_index);
 #endif
 	}
@@ -193,15 +193,13 @@ void do_ri(struct pt_regs *regs)
 	era = regs->r_era;
 	rt_kprintf("do_ri -> era : 0x%16lx\n, ra: 0x%16lx\n", era);
 	rt_kprintf("UN-handled do_ri exception occurred!!!\n");
-	while(1);
+	while (1);
 }
 
 
 void do_rt_dispatch_trap(struct pt_regs *regs) 
 {
-
 	rt_uint64_t estat;
-
 	rt_thread_t thread = rt_thread_self();
 
 	estat = read_csr_estat() & CSR_ESTAT_IS;

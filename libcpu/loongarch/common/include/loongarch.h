@@ -35,10 +35,12 @@
 #define _ULCAST_ 
 #define __CONST64_(X,Y)	(X)
 #define _CONST64_(X)	__CONST64_(X, UL)
+#define BIT_ULL(x)
 #else 
 #define _ULCAST_ (unsigned long)
 #define __CONST64_(X,Y)	(X##Y)
 #define _CONST64_(X)	__CONST64_(X, UL)
+#define BIT_ULL(x) (1ULL<<x)
 #endif
 
 /* Basic CSR registers */
@@ -348,6 +350,24 @@
 #define EXCCODE_INT_END		(EXCCODE_INT_START + EXCCODE_INT_NUM - 1)
 
 
+
+
+
+// IOCSR
+#define LOONGARCH_IOCSR_VENDOR		0x10
+
+#define LOONGARCH_IOCSR_CPUNAME		0x20
+
+#define LOONGARCH_IOCSR_NODECNT		0x408
+
+#define LOONGARCH_IOCSR_MISC_FUNC	0x420
+#define  IOCSR_MISC_FUNC_SOFT_INT	BIT_ULL(10)
+#define  IOCSR_MISC_FUNC_TIMER_RESET	BIT_ULL(21)
+#define  IOCSR_MISC_FUNC_EXT_IOI_EN	BIT_ULL(48)
+#define  IOCSR_MISC_FUNC_AVEC_EN	BIT_ULL(51)
+
+
+
 #ifndef __ASSEMBLY__
 
 #define read_csr_asid()				csr_read32(LOONGARCH_CSR_ASID)
@@ -357,6 +377,13 @@
 #define read_csr_estat()			csr_read32(LOONGARCH_CSR_ESTAT)
 #define write_csr_estat(val)		csr_write32(val, LOONGARCH_CSR_ESTAT)
 #define write_csr_tintclear(val)	csr_write32(val, LOONGARCH_CSR_TINTCLR)
+
+/* IOCSR */
+#define iocsr_read32(reg) __iocsrrd_w(reg)
+#define iocsr_read64(reg) __iocsrrd_d(reg)
+#define iocsr_write32(val, reg) __iocsrwr_w(val, reg)
+#define iocsr_write64(val, reg) __iocsrwr_d(val, reg)
+
 
 static inline unsigned long set_csr_ecfg(unsigned long set_val)
 {

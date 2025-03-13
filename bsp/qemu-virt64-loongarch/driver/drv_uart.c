@@ -142,6 +142,8 @@ int rt_hw_uart_init(void)
 #ifdef RT_USING_SMART
     uart0_base = rt_ioremap(uart0_base, 4096);
 #endif
+
+    uart_init();
     // register device
     serial = &serial0;
     uart = &uart0;
@@ -150,7 +152,10 @@ int rt_hw_uart_init(void)
     serial->config = config;
     serial->config.baud_rate = UART_DEFAULT_BAUDRATE;
     uart->hw_base = (rt_ubase_t)uart0_base;
-    uart->irqno = 0x7;
+    
+    // qemu HWID = 0x3
+    //  emu HWID = 0x7
+    uart->irqno = 0x3; 
 
     rt_hw_serial_register(serial,
                           RT_CONSOLE_DEVICE_NAME,
