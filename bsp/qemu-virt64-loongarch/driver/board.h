@@ -28,7 +28,5 @@ extern unsigned int __bss_end;
 #define RT_HW_PAGE_END   ((void *)(KERNEL_VADDR_START + (256 * 1024 * 1024)))
 
 void rt_hw_board_init(void);
-void rt_init_user_mem(struct rt_thread *thread, const char *name,
-                      unsigned long *entry);
 
 #endif
