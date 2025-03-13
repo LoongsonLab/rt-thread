@@ -167,7 +167,12 @@ void do_rt_dispatch_trap(struct pt_regs *regs)
 {
 
 	rt_uint64_t estat;
+
+	rt_thread_t thread = rt_thread_self();
+
 	estat = read_csr_estat() & CSR_ESTAT_IS;
+
+	// rt_kprintf("Exception Thread: 0x%lx, pt_regs: 0x%lx\n", thread, regs);
 
 	if ((estat & CSR_ESTAT_IS_IPI))
 	{
@@ -176,7 +181,7 @@ void do_rt_dispatch_trap(struct pt_regs *regs)
 		return;
 	} else if ((estat & CSR_ESTAT_IS_TI))
 	{
-		rt_kprintf("---------- Enter Interrupt ----------\n");
+		// rt_kprintf("---------- Enter Interrupt ----------\n");
 		// rt_kprintf("     Timer Exception occurred!       \n");
 		write_csr_tintclear(CSR_TINTCLR_TI);
 		rt_interrupt_enter();

@@ -58,8 +58,6 @@
 
 #define PT_SIZE     PT_REG_END
 
-#define PT_SWITCH_FRAME_SIZE (16 * LONGSIZE)
-
 // use for context switch
 #define RT_THREAD_RA    (0 * LONGSIZE)
 #define RT_THREAD_S0    (1 * LONGSIZE)
@@ -80,7 +78,7 @@
 
 #define RT_THREAD_END   (RT_THREAD_FCC + LONGSIZE)
 
-
+#define PT_SWITCH_FRAME_SIZE RT_THREAD_END
 
 #endif /* _ASM_ASM_OFFSETS_H */
 

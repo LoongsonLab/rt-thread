@@ -4,7 +4,6 @@
 #include "asm-offsets.h"
 
 START_POINT(_rt_thread_entry)
-    addi.d     sp, sp, PT_SWITCH_FRAME_SIZE
 	LONG_LD    ra, sp, PT_R14		/* thread exit */
     LONG_LD    a0, sp, PT_R13       /* parameter */
     LONG_LD    s0, sp, PT_R12       /* tentry */
