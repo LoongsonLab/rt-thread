@@ -11,6 +11,23 @@
 #ifndef __ASM_CPUPORT_H__
 #define __ASM_CPUPORT_H__
 
+#include <rttypes.h>
+#include <rtcompiler.h>
 
+void trap_init(void);
+void init_smp(void);
+void init_mmu(void);
+
+rt_inline rt_ubase_t drdtime(void)
+{
+	rt_ubase_t val = 0;
+
+	__asm__ __volatile__(
+		"rdtime.d %0, $zero\n\t"
+		: "=r"(val)
+		:
+		);
+	return val;
+}
 
 #endif /* __ASM_CPUPORT_H__ */

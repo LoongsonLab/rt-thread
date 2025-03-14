@@ -3,6 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
+ * Description: this header is forked from linux project.
+ *              LoongArch arch privilege CSR Registers
+ *              Detailed documents access website:
+ *              https://loongson.cn 
+ *
  * Change Logs:
  * Date           Author       Notes
  * 2025-03-10     LoongsonLab  the first version
@@ -297,7 +302,6 @@
 
 #define CSR_DMW3_INIT		0x0
 
-
 /* ExStatus.ExcCode */
 #define EXCCODE_RSV		0	/* Reserved */
 #define EXCCODE_TLBL		1	/* TLB miss on a load */
@@ -357,9 +361,6 @@
 #define EXCCODE_INT_END		(EXCCODE_INT_START + EXCCODE_INT_NUM - 1)
 
 
-
-
-
 // IOCSR
 #define LOONGARCH_IOCSR_VENDOR		0x10
 
@@ -374,7 +375,6 @@
 #define  IOCSR_MISC_FUNC_AVEC_EN	BIT_ULL(51)
 
 
-
 #ifndef __ASSEMBLY__
 
 #define read_csr_asid()				csr_read32(LOONGARCH_CSR_ASID)
@@ -386,10 +386,10 @@
 #define write_csr_tintclear(val)	csr_write32(val, LOONGARCH_CSR_TINTCLR)
 
 /* IOCSR */
-#define iocsr_read32(reg) __iocsrrd_w(reg)
-#define iocsr_read64(reg) __iocsrrd_d(reg)
-#define iocsr_write32(val, reg) __iocsrwr_w(val, reg)
-#define iocsr_write64(val, reg) __iocsrwr_d(val, reg)
+#define iocsr_read32(reg) 			__iocsrrd_w(reg)
+#define iocsr_read64(reg) 			__iocsrrd_d(reg)
+#define iocsr_write32(val, reg) 	__iocsrwr_w(val, reg)
+#define iocsr_write64(val, reg) 	__iocsrwr_d(val, reg)
 
 
 static inline unsigned long set_csr_ecfg(unsigned long set_val)

@@ -10,7 +10,6 @@
 
 #include "asm-generic.h"
 #include "asm-offsets.h"
-#include "cpuport.h"
 #include "stackframe.h"
 
 

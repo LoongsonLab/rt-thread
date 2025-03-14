@@ -9,13 +9,12 @@
  * 2025-03-12     LoongsonLab  remove stack adjust.
  */
 
-#include "cpuport.h"
 #include "stackframe.h"
 #include "asm-generic.h"
 #include "asm-offsets.h"
 
 START_POINT(_rt_thread_entry)
-	LONG_LD    ra, sp, PT_R14		/* thread exit */
+    LONG_LD    ra, sp, PT_R14		/* thread exit */
     LONG_LD    a0, sp, PT_R13       /* parameter */
     LONG_LD    s0, sp, PT_R12       /* tentry */
     move       s1, ra
