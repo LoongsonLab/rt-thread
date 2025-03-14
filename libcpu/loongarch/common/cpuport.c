@@ -1,3 +1,12 @@
+/*
+ * Copyright (C) 2020-2025 Loongson Technology Corporation Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2025-03-10     LoongsonLab  the first version
+ */
 
 #include <rthw.h>
 #include <rtthread.h>
@@ -19,11 +28,8 @@ volatile rt_ubase_t rt_interrupt_to_thread = 0;
 volatile rt_ubase_t rt_thread_switch_interrupt_flag = 0;
 
 /*
- * #ifdef RT_USING_SMP
- * void rt_hw_context_switch_interrupt(void *context, rt_ubase_t from, rt_ubase_t to, struct rt_thread *to_thread);
- * #else
- * void rt_hw_context_switch_interrupt(rt_ubase_t from, rt_ubase_t to);
- * #endif
+ * void rt_hw_context_switch_interrupt(rt_ubase_t from, rt_ubase_t to
+ *                                     rt_thread_t from_tr, rt_thread_t to_tr);
  */
 #ifndef RT_USING_SMP
 void rt_hw_context_switch_interrupt(rt_ubase_t from, rt_ubase_t to, rt_thread_t from_thread, rt_thread_t to_thread)

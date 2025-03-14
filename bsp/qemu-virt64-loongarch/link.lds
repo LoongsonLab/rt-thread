@@ -6,6 +6,7 @@
  * Change Logs:
  * Date           Author       Notes
  * 2020/12/12     bernard      The first version
+ * 2025/3/10      LoongsonLab  modify arch and address
  */
 
 INCLUDE "link_stacksize.lds"

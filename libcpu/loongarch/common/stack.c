@@ -1,3 +1,12 @@
+/*
+ * Copyright (C) 2020-2025 Loongson Technology Corporation Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2025-03-10     LoongsonLab  the first version
+ */
 
 #include <rtthread.h>
 
@@ -8,7 +17,6 @@
  * when scheduler restore this new thread, context will restore
  * an entry to user first application
  *
- * s0-s11, ra, sstatus, a0
  * @param tentry the entry of thread
  * @param parameter the parameter of entry
  * @param stack_addr the beginning stack address
@@ -34,15 +42,16 @@ rt_uint8_t *rt_hw_stack_init(void *tentry, void *parameter, rt_uint8_t *stack_ad
     rt_hw_switch_frame_t frame = (rt_hw_switch_frame_t)
         ((rt_ubase_t)tsp - sizeof(struct rt_hw_switch_frame));
 
-    if (sizeof(struct rt_hw_switch_frame) != PT_SWITCH_FRAME_SIZE)
-    {
-        rt_kprintf("SWITCH_FRAME_SIZE don't match rt_hw_switch_frame!\n");
-    }
+    RT_ASSERT(sizeof(struct rt_hw_switch_frame) == PT_SWITCH_FRAME_SIZE);
 
     rt_memset(frame, 0, sizeof(struct rt_hw_switch_frame));
+    
     extern void _rt_thread_entry(void);
+    
     frame->r_ra = (rt_ubase_t)_rt_thread_entry;
+    frame->r_prmd = DEFAULT_THREAD_PRMD;
     frame->r_crmd = DEFAULT_THREAD_CRMD;
+    
     return (void *)frame;
 }
 

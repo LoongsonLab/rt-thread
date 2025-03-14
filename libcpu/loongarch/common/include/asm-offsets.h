@@ -1,8 +1,13 @@
-
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020-2022 Loongson Technology Corporation Limited
+ * Copyright (C) 2020-2025 Loongson Technology Corporation Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2025-03-10     LoongsonLab  the first version
  */
+
 #ifndef _ASM_ASM_OFFSETS_H
 #define _ASM_ASM_OFFSETS_H
 
@@ -73,8 +78,9 @@
 #define RT_THREAD_TP    (11 * LONGSIZE)
 #define RT_THREAD_SP    (12 * LONGSIZE)
 #define RT_THREAD_CRMD  (13 * LONGSIZE)
-#define RT_THREAD_FCSR  (14 * LONGSIZE)
-#define RT_THREAD_FCC   (15 * LONGSIZE)
+#define RT_THREAD_PRMD  (14 * LONGSIZE)
+#define RT_THREAD_FCSR  (15 * LONGSIZE)
+#define RT_THREAD_FCC   (16 * LONGSIZE)
 
 #define RT_THREAD_END   (RT_THREAD_FCC + LONGSIZE)
 

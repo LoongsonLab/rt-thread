@@ -57,7 +57,7 @@ extern void *uart0_base;
 #define read8_uart0(idx) HWREG8((void*)((size_t)uart0_base + (idx)))
 
 void rt_hw_uart_start_rx_thread();
-int rt_hw_uart_init(void);
 void drv_uart_puts(char *str); // for syscall
+int rt_hw_uart_init(void);
 
 #endif /* __DRV_UART_H__ */

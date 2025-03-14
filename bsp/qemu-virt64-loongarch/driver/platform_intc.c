@@ -1,8 +1,17 @@
+/*
+ * Copyright (C) 2020-2025 Loongson Technology Corporation Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2025-03-10     LoongsonLab  the first version
+ * 2025-03-13     LoongsonLab  fix bugs
+ */
 
 #include <rtthread.h>
 
 #include "loongarch.h"
-
 
 #define EIOINTC_REG_NODEMAP	0x14a0
 #define EIOINTC_REG_IPMAP	0x14c0

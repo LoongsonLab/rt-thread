@@ -1,4 +1,12 @@
-
+/*
+ * Copyright (C) 2020-2025 Loongson Technology Corporation Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2025-03-10     LoongsonLab  the first version
+ */
 
 #include <rtthread.h>
 #include <rthw.h>
@@ -279,8 +287,9 @@ void set_handler(unsigned long offset, void *addr, unsigned long size)
 	__asm__ volatile ("\tibar 0\n"::);
 }
 
-void trap_init(void) {
-	long i;
+void trap_init(void) 
+{
+	unsigned int i;
 
 	setup_vint_size(7);
 
@@ -296,9 +305,7 @@ void trap_init(void) {
 	for (i = EXCCODE_ADE; i <= EXCCODE_BTDIS; i++)
 		set_handler(i * VECSIZE, exception_table[i], VECSIZE);
 
-	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 |
-	             ECFGF_IP3 | ECFGF_IP4 | ECFGF_IP5 | ECFGF_IP6 | ECFGF_IP7 |
-		         ECFGF_IPI | ECFGF_PMC);
+	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IPI | ECFGF_PMC);
 
 }
 

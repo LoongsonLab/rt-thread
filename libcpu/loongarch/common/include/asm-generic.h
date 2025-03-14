@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2006-2023 RT-Thread Development Team
+ * Copyright (C) 2020-2025 Loongson Technology Corporation Limited
  *
  * SPDX-License-Identifier: Apache-2.0
  *
  * Change Logs:
  * Date           Author       Notes
- * 2023-03-12     LoongsonLab  the first version
+ * 2025-03-10     LoongsonLab  the first version
  */
+
 #ifndef __ASM_GENERIC_H__
 #define __ASM_GENERIC_H__
 

@@ -1,3 +1,15 @@
+/*
+ * Copyright (C) 2020-2025 Loongson Technology Corporation Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Change Logs:
+ * Date           Author       Notes
+ * 2025-03-10     LoongsonLab  the first version
+ * 2025-03-12     LoongsonLab  add fpu support
+ * 2025-03-13     LoongsonLab  fix save and restore
+ */
+
 #ifndef __ASM_STACKFRAME_H__
 #define __ASM_STACKFRAME_H__
 
@@ -185,6 +197,8 @@
 .endm
 
 .macro	cpu_save_csr_reg thread
+	csrrd	t1, LOONGARCH_CSR_PRMD
+	stptr.d	t1, \thread, RT_THREAD_PRMD
 	csrrd	t1, LOONGARCH_CSR_CRMD
 	stptr.d	t1, \thread, RT_THREAD_CRMD
 .endm
@@ -206,6 +220,8 @@
 .endm
 
 .macro	cpu_restore_csr_reg thread
+	ldptr.d	t1, \thread, RT_THREAD_PRMD
+	csrwr	t1, LOONGARCH_CSR_PRMD
 	ldptr.d	t1, \thread, RT_THREAD_CRMD
 	csrwr	t1, LOONGARCH_CSR_CRMD
 .endm
