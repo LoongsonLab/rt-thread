@@ -28,4 +28,4 @@ path_image=${1}
 # -drive if=none,file=$path_image,format=raw,id=blk0 -device virtio-blk-device,drive=blk0,bus=virtio-mmio-bus.0 
 
 
-qemu-system-loongarch64 -nographic -machine virt -cpu la464 -m 4G -kernel rtthread.elf
+qemu-system-loongarch64 -nographic -machine virt -cpu la464 -m 256M -kernel rtthread.elf
