@@ -2,7 +2,8 @@ import os
 
 # toolchains options
 ARCH        ='loongarch'
-CPU         ='virt64'
+# CPU         ='virt64'
+CPU         ='loong64'
 CROSS_TOOL  ='gcc'
 
 RTT_ROOT = os.getenv('RTT_ROOT') or os.path.join(os.getcwd(), '..', '..')
@@ -47,7 +48,7 @@ if PLATFORM == 'gcc':
 
     CXXFLAGS = CFLAGS
 
-    CFLAGS  += ' -Wno-incompatible-pointer-types -Wno-implicit-function-declaration'
+    CFLAGS  += ' -Wno-incompatible-pointer-types -Wno-implicit-function-declaration -Wno-int-conversion'
 
 DUMP_ACTION = OBJDUMP + ' -D -S $TARGET > rtthread.asm\n'
 POST_ACTION = OBJCPY + ' -O binary $TARGET rtthread.bin\n' + SIZE + ' $TARGET \n'

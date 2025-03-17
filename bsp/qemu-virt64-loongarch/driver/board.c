@@ -16,6 +16,37 @@
 #include "timer.h"
 #include "drv_uart.h"
 
+#ifdef RT_USING_SMART
+#include <mm_aspace.h>
+#include <mm_page.h>
+
+#include "mmu.h"
+#include "lwp_arch.h"
+#endif
+
+
+#define IOREMAP_SIZE (1ul << 30)
+
+#ifndef ARCH_REMAP_KERNEL
+#define IOREMAP_VEND USER_VADDR_START
+#else
+#define IOREMAP_VEND 0ul
+#endif /* ARCH_REMAP_KERNEL */
+
+
+#ifdef RT_USING_SMART
+rt_region_t init_page_region = {(rt_size_t)RT_HW_PAGE_START, (rt_size_t)RT_HW_PAGE_END};
+
+extern size_t MMUTable[];
+
+struct mem_desc platform_mem_desc[] = {
+    {KERNEL_VADDR_START, (rt_size_t)RT_HW_PAGE_END - 1, (rt_size_t)ARCH_MAP_FAILED, NORMAL_MEM},
+};
+
+#define NUM_MEM_DESC (sizeof(platform_mem_desc) / sizeof(platform_mem_desc[0]))
+#endif
+
+
 
 void rt_hw_board_init(void)
 {

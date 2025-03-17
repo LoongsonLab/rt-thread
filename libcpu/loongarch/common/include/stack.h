@@ -11,10 +11,9 @@
 #ifndef __STACK_H__
 #define __STACK_H__
 
-#include "asm-offsets.h"
-#include "stackframe.h"
-
 #include <rtthread.h>
+
+#include "asm-offsets.h"
 
 typedef struct rt_hw_switch_frame
 {
@@ -79,6 +78,7 @@ struct pt_regs
     rt_ubase_t r_era;        /* (r36)          csr era                    */
     rt_ubase_t r_bvaddr;     /* (r37)          csr bvaddr                 */
     rt_ubase_t r_ecfg;       /* (r38)          csr ecfg                   */
+    rt_ubase_t r_u_stack;    /* (r39)          user statck for SMART      */
 #ifdef ARCH_LOONGARCH_FPU
     rt_ubase_t f[32];      /* f0~f31 */
 #endif /* ARCH_LOONGARCH_FPU */

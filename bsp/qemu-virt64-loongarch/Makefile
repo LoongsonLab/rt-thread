@@ -29,6 +29,9 @@ debug:
 	  -ex 'disp /16i $$pc'
 
 
+menuconfig:
+	scons --menuconfig
+
 .PHONY: clean
 clean:
 	rm -rf build __pycache__ loongarch64_virt.* rtthread.* .sconsign.dblite \

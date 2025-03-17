@@ -123,6 +123,9 @@ SECTIONS
         . = ALIGN(64);
         __stack_start__ = .;
 
+        . = ALIGN(8);
+        __stack_end__ = .;
+        
         . += __STACKSIZE__;
         __stack_cpu0 = .;
 

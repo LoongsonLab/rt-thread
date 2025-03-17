@@ -10,14 +10,18 @@
 
 #include <rthw.h>
 #include <rtthread.h>
+#include <rtdbg.h>
 
 #include "stack.h"
 
 #ifdef RT_USING_SMART
+#include <lwp_ipc.h>
 #include <lwp_syscall.h>
 
 
-typedef rt_ubase_t (*syscall_func)( rt_ubase_t, 
+#undef syscall_func
+
+typedef rt_ubase_t (*syscall_func_loong64)( rt_ubase_t, 
 	                                rt_ubase_t, 
 	                                rt_ubase_t, 
 	                                rt_ubase_t, 
@@ -34,7 +38,7 @@ void rt_dispatch_syscall(struct pt_regs *regs)
 		while (1);
 	}
 
-	syscall_func syscallfunc = (syscall_func)lwp_get_sys_api(syscall_num);
+	syscall_func_loong64 syscallfunc = (syscall_func_loong64)lwp_get_sys_api(syscall_num);
 
 	if (syscallfunc == RT_NULL)
     {
