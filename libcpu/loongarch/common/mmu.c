@@ -22,6 +22,7 @@
 #include <lwp_user_mm.h>
 #endif
 
+#include "loongarch.h"
 
 #define SZ_4K		0x00001000
 #define PTE_SIZE    512
@@ -35,6 +36,14 @@ void rt_hw_aspace_switch(rt_aspace_t aspace)
     uintptr_t page_table = (uintptr_t)rt_kmem_v2p(aspace->page_table);
     current_mmu_table = aspace->page_table;
 
+    // update CSR PGDL(user)
+    __asm__ __volatile__(
+		"csrwr %[pgdl_val], %[pgdl_reg] \n\t"
+		: [pgdl_val] "+r" (current_mmu_table)
+		: [pgdl_reg] "i"  (LOONGARCH_CSR_PGDL)
+		: "memory"
+	);
+
     rt_hw_tlb_invalidate_all_local();
 }
 
@@ -43,6 +52,133 @@ void *rt_hw_mmu_tbl_get()
 {
     return current_mmu_table;
 }
+
+static int unmap_one_page_4K(struct rt_aspace *aspace, void *v_addr) {
+	int ret = 0;
+	int i = 0;
+	unsigned long map_level_vaddr = v_addr;
+	unsigned long page = 0;
+	unsigned int level_off = 0;
+	unsigned int map_level = MMU_PG_LEVEL;
+	unsigned int mmu_pg_shift = 39 - ARCH_PAGE_LEVEL_SHIFT;
+	rt_ubase_t *map_level_tbl = ((rt_ubase_t *)aspace->page_table);
+
+	unsigned long save_pre_level_tlb = map_level_tbl;
+
+	unsigned long *need_free_pages[MMU_PG_LEVEL] = {0};
+
+	while(map_level > 0) 
+	{
+		level_off = map_level_vaddr >> mmu_pg_shift;
+		level_off &= ARCH_PAGE_LEVEL_MASK;
+		page = map_level_tbl[level_off];
+		if (page)
+		{
+			page &= ARCH_PAGE_ADDRESS_MASK;
+			ret = rt_page_ref_get(page, 0);
+            if (ret == 1)
+            {
+            	rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, map_level_tbl + level_off, sizeof(void *));
+            	need_free_pages[map_level] = page;
+            }
+        }
+        // update tbl
+        map_level--;
+		map_level_tbl = page;
+		mmu_pg_shift -= ARCH_PAGE_LEVEL_SHIFT;
+	}
+
+	// final free all unused pages.
+	for (i = 0; i < MMU_PG_LEVEL; ++i)
+	{
+		if (need_free_pages[i])
+		{
+			rt_pages_free(need_free_pages[i], 0);
+		}
+	}
+	return 0;
+}
+
+static int map_one_page_4K(struct rt_aspace *aspace, void *v_addr, void *p_addr, unsigned long attr) {
+	int ret = 0;
+	unsigned long map_level_vaddr = v_addr;
+	unsigned long page = 0;
+	unsigned int level_off = 0;
+	unsigned int map_level = MMU_PG_LEVEL;
+	unsigned int mmu_pg_shift = 39 - ARCH_PAGE_LEVEL_SHIFT;
+	rt_ubase_t *map_level_tbl = ((rt_ubase_t *)aspace->page_table);
+
+	// 1. judge va if illegal 
+	if (v_addr == RT_NULL)
+	{
+		return MMU_MAP_ERROR_VANOTALIGN;
+	}
+	
+	if (((unsigned long)v_addr) & ARCH_PAGE_MASK)
+	{
+		return MMU_MAP_ERROR_PANOTALIGN;
+	}
+
+	// 2. walk page table
+	do {
+		level_off = map_level_vaddr >> mmu_pg_shift;
+		level_off &= ARCH_PAGE_LEVEL_MASK;
+		page = map_level_tbl[level_off];
+		if (page)
+		{
+			// 2.1 find a valid level
+			if (page & ARCH_PAGE_MASK)
+				return MMU_MAP_ERROR_PANOTALIGN;
+
+			// 2.2 increase ref
+			page &= ARCH_PAGE_ADDRESS_MASK;
+			rt_page_ref_inc((void *)page, 0);
+			
+			// 2.3 update
+			map_level--;
+			map_level_tbl = page;
+			mmu_pg_shift -= ARCH_PAGE_LEVEL_SHIFT;
+			
+			// next level table
+			continue;
+		} 
+		// need alloc a new table 
+		else 
+		{
+			// 3.1 alloca a page 
+			page = (unsigned long)rt_pages_alloc_ext(0, PAGE_ANY_AVAILABLE);
+			if (!page)
+            {
+            	unmap_one_page_4K(aspace, v_addr);
+                return MMU_MAP_ERROR_NOPAGE;
+            }
+
+            // 3.2 clear and notify dcache
+            rt_memset((void *)page, 0, ARCH_PAGE_SIZE);
+            rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, (void *)page, ARCH_PAGE_SIZE);
+            
+            map_level_tbl[level_off] = (rt_ubase_t)page;
+            rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, map_level_tbl + level_off, sizeof(void *));
+
+            // 3.3 update
+            map_level--;
+			map_level_tbl = page;
+			mmu_pg_shift -= ARCH_PAGE_LEVEL_SHIFT;
+		}
+	} while (map_level > 1);
+
+	// here, handle PTE.
+	attr |= 0x0;
+	p_addr = ((unsigned long)p_addr) | attr;
+	level_off = map_level_vaddr >> mmu_pg_shift;
+	level_off &= ARCH_PAGE_LEVEL_MASK;
+	map_level_tbl[level_off] = p_addr;
+	rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, map_level_tbl + level_off, sizeof(void *));
+    
+    return 0;
+}
+
+
 
 
 /**
@@ -78,7 +214,7 @@ void *rt_hw_mmu_map(struct rt_aspace *aspace, void *v_addr, void *p_addr,
     while (npages--)
     {
         MM_PGTBL_LOCK(aspace);
-        ret = _map_one_page(aspace, v_addr, p_addr, attr);
+        ret = map_one_page_4K(aspace, v_addr, p_addr, attr);
         MM_PGTBL_UNLOCK(aspace);
         if (ret != 0)
         {
@@ -86,7 +222,7 @@ void *rt_hw_mmu_map(struct rt_aspace *aspace, void *v_addr, void *p_addr,
             while (unmap_va != v_addr)
             {
                 MM_PGTBL_LOCK(aspace);
-                _unmap_area(aspace, unmap_va, ARCH_PAGE_SIZE);
+                unmap_one_page_4K(aspace, unmap_va);
                 MM_PGTBL_UNLOCK(aspace);
                 unmap_va += ARCH_PAGE_SIZE;
             }
@@ -127,6 +263,8 @@ void *rt_hw_mmu_map(struct rt_aspace *aspace, void *v_addr, void *p_addr,
  */
 void rt_hw_mmu_unmap(struct rt_aspace *aspace, void *v_addr, size_t size)
 {
+    size_t npages = size >> ARCH_PAGE_SHIFT;
+
     /* caller guarantee that v_addr & size are page aligned */
     if (!aspace->page_table)
     {
@@ -134,23 +272,57 @@ void rt_hw_mmu_unmap(struct rt_aspace *aspace, void *v_addr, size_t size)
     }
     size_t unmapped = 0;
 
-    while (size > 0)
+    while (npages > 0)
     {
         MM_PGTBL_LOCK(aspace);
-        // unmapped = _unmap_area(aspace, v_addr, size);
+        unmap_one_page_4K(aspace, v_addr);
         MM_PGTBL_UNLOCK(aspace);
 
-        /* when unmapped == 0, region not exist in pgtbl */
-        if (!unmapped || unmapped > size) break;
-
-        size -= unmapped;
-        v_addr += unmapped;
+        npages--;
+        v_addr = (char *)v_addr + ARCH_PAGE_SIZE;
     }
 }
+
+
+static void _init_region(void *vaddr, size_t size)
+{
+    rt_ioremap_start = vaddr;
+    rt_ioremap_size = size;
+    rt_mpr_start = (char *)rt_ioremap_start - rt_mpr_size;
+}
+
 
 int rt_hw_mmu_map_init(rt_aspace_t aspace, void *v_address, rt_ubase_t size,
                        rt_ubase_t *vtable, rt_ubase_t pv_off)
 {
+    size_t va_s, va_e;
+
+    if (!aspace || !vtable)
+    {
+        return -1;
+    }
+
+    va_s = (size_t)v_address;
+    va_e = (size_t)v_address + size - 1;
+
+    if (va_e < va_s)
+    {
+        return -1;
+    }
+
+    va_s >>= 21;
+    va_e >>= 21;
+
+    if (va_s == 0)
+    {
+        return -1;
+    }
+
+    rt_aspace_init(aspace, (void *)KERNEL_VADDR_START, KERNEL_VADDR_END - KERNEL_VADDR_START,
+                   vtable);
+
+    _init_region(v_address, size);
+
     return 0;
 }
 

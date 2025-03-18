@@ -42,6 +42,10 @@ struct mem_desc
 #define ARCH_PAGE_SIZE   (1ULL << ARCH_PAGE_SHIFT)
 #define ARCH_PAGE_MASK   (ARCH_PAGE_SIZE - 1)
 
+#define MMU_PG_LEVEL 3
+#define ARCH_PAGE_LEVEL_SHIFT (ARCH_PAGE_SHIFT - 3)
+#define ARCH_PAGE_LEVEL_MASK  ((1 << ARCH_PAGE_LEVEL_SHIFT) - 1)
+#define ARCH_PAGE_ADDRESS_MASK 0xfffffffffffff000UL
 
 #define MMU_MAP_K_DEVICE   0x0
 #define MMU_MAP_K_RWCB   0x0
@@ -146,6 +150,17 @@ rt_inline size_t rt_hw_mmu_attr_add_perm(size_t attr, rt_base_t prot)
     // }
     return 0;
 }
+
+
+#define MMU_MAP_ERROR_VANOTALIGN -1
+#define MMU_MAP_ERROR_PANOTALIGN -2
+#define MMU_MAP_ERROR_NOPAGE     -3
+#define MMU_MAP_ERROR_CONFLICT   -4
+
+
+// #define KERNEL_VADDR_START ((void *)0x9000000000000000)
+#define KERNEL_VADDR_SIZE  (0x1000000000000000)
+#define KERNEL_VADDR_END   ((void *)0x9000000000000000 + KERNEL_VADDR_SIZE - 1)
 
 
 #endif /* _ASM_MMU_H */
