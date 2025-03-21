@@ -155,7 +155,9 @@ int rt_hw_uart_init(void)
     
     // qemu HWID = 0x3
     //  emu HWID = 0x7
-    uart->irqno = 0x3; 
+
+    // eiointc irq 0x0
+    uart->irqno = 0x0; 
 
     rt_hw_serial_register(serial,
                           RT_CONSOLE_DEVICE_NAME,

@@ -12,7 +12,7 @@
 #define _ASM_MMU_H
 
 
-#ifdef RT_USING_SMART
+// #ifdef RT_USING_SMART
 #include <mm_aspace.h>
 #include <mm_page.h>
 
@@ -25,7 +25,7 @@ struct mem_desc
     struct rt_varea varea;
 };
 
-#endif
+// #endif
 
 /* RAM, Flash, or ROM */
 #define NORMAL_MEM 0
@@ -46,6 +46,8 @@ struct mem_desc
 #define ARCH_PAGE_LEVEL_SHIFT (ARCH_PAGE_SHIFT - 3)
 #define ARCH_PAGE_LEVEL_MASK  ((1 << ARCH_PAGE_LEVEL_SHIFT) - 1)
 #define ARCH_PAGE_ADDRESS_MASK 0xfffffffffffff000UL
+
+#define ARCH_PAGE_BIT_V 0x1
 
 #define MMU_MAP_K_DEVICE   0x0
 #define MMU_MAP_K_RWCB   0x0
@@ -69,6 +71,8 @@ struct mem_desc
 
 #define ARCH_VADDR_WIDTH 39
 
+
+#ifdef RT_USING_SMART
 
 rt_inline void rt_hw_tlb_invalidate_all_local(void)
 {
@@ -103,7 +107,7 @@ void rt_hw_aspace_switch(rt_aspace_t aspace);
 void *rt_hw_mmu_v2p(rt_aspace_t aspace, void *vaddr);
 
 void *rt_hw_mmu_tbl_get(void);
-
+#endif
 
 /**
  * @brief Remove permission from attribution

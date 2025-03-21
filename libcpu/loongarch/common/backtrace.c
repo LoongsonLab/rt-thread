@@ -10,7 +10,7 @@
  */
 
 
-#if 0
+#if 1
 
 #define DBG_TAG "hw.backtrace"
 #define DBG_LVL DBG_INFO
@@ -18,6 +18,8 @@
 
 #include <rtthread.h>
 #include <mm_aspace.h>
+
+#include "mmu.h"
 #include "stack.h"
 
 #define WORD                            sizeof(rt_base_t)
@@ -121,7 +123,7 @@ rt_err_t rt_hw_backtrace_frame_get(rt_thread_t thread, struct rt_hw_backtrace_fr
     }
     else
     {
-        rt_hw_switch_frame_t sframe = thread->r_sp;
+        rt_hw_switch_frame_t sframe = thread->sp;
         frame->pc = sframe->r_ra;
         frame->fp = sframe->r_fp;
         rc = RT_EOK;

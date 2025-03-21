@@ -50,7 +50,7 @@ extern void handle_tlb_modify_ptw(void);
  * This function will un-mask a interrupt.
  * @param vector the interrupt number
  */
-void rt_hw_interrupt_umask(int vector)
+rt_weak void rt_hw_interrupt_umask(int vector)
 {
 
 }
@@ -61,7 +61,7 @@ void rt_hw_interrupt_umask(int vector)
  * @param new_handler the interrupt service routine to be installed
  * @param old_handler the old interrupt service routine
  */
-rt_isr_handler_t rt_hw_interrupt_install(int vector, rt_isr_handler_t handler,
+rt_weak rt_isr_handler_t rt_hw_interrupt_install(int vector, rt_isr_handler_t handler,
         void *param, const char *name)
 {
     rt_isr_handler_t old_handler = RT_NULL;
@@ -99,7 +99,7 @@ rt_weak void platform_generic_irq()
 		irq_desc[hw_irq_index].handler(hw_irq_index, irq_desc[hw_irq_index].param);
 		hw_irq_pending &= ~(1UL << ( bit - 1));
 
-#ifdef RT_USING_INTERRUPT_INFO
+#ifdef RT_USING_INTERRUPT_INFO0
         rt_snprintf(irq_desc[hw_irq_index].name, RT_NAME_MAX - 1, "%s", name);
         irq_desc[hw_irq_index].counter ++;
 #endif

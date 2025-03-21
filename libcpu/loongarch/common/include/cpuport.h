@@ -30,4 +30,20 @@ rt_inline rt_ubase_t drdtime(void)
 	return val;
 }
 
+rt_inline void rt_hw_dsb(void)
+{
+    __asm__ volatile("dbar 0":::"memory");
+}
+
+rt_inline void rt_hw_dmb(void)
+{
+    __asm__ volatile("dbar 0":::"memory");
+}
+
+rt_inline void rt_hw_isb(void)
+{
+    __asm__ volatile("ibar 0":::"memory");
+}
+
+
 #endif /* __ASM_CPUPORT_H__ */

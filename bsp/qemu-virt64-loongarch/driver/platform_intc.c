@@ -10,6 +10,7 @@
  */
 
 #include <rtthread.h>
+// #include <rtthread.h>
 
 #include "loongarch.h"
 
@@ -115,13 +116,71 @@ void platform_irq_init() {
 		writel(0xFFFFFFFF, PHC_PIC_BASE + PCH_PIC_HTMSI_EN + 4 * i);
 	}
 
-
-	// data = 0x123;
+	writel(0x0, PHC_PIC_BASE + 0x200 + 0);
+	writel(0x10, PHC_PIC_BASE + 0x200 + 0x10);
+	writel(0x11, PHC_PIC_BASE + 0x200 + 0x11);
+	writel(0x12, PHC_PIC_BASE + 0x200 + 0x12);
+	writel(0x13, PHC_PIC_BASE + 0x200 + 0x13);
+	writel(0x14, PHC_PIC_BASE + 0x200 + 0x14);
+	writel(0x15, PHC_PIC_BASE + 0x200 + 0x15);
 
 	writel(0x0, PHC_PIC_BASE + PCH_PIC_MASK + 0);
-
-	// iocsr_write32(data, EIOINTC_REG_NODEMAP + 0);
-
 }
 
+
+#define EIOINTC_MAX_HANDLERS 128
+/* Exception and interrupt handler table */
+struct rt_irq_desc eiointc_irq_desc[EIOINTC_MAX_HANDLERS];
+
+void rt_hw_interrupt_umask(int vector)
+{
+	writel(0x0, PHC_PIC_BASE + PCH_PIC_MASK + 0);
+}
+
+rt_isr_handler_t rt_hw_interrupt_install(int vector, rt_isr_handler_t handler,
+        void *param, const char *name)
+{
+	rt_isr_handler_t old_handler = RT_NULL;
+	
+	if(vector < EIOINTC_MAX_HANDLERS)
+    {
+        old_handler = eiointc_irq_desc[vector].handler;
+        if (handler != RT_NULL)
+        {
+            eiointc_irq_desc[vector].handler = (rt_isr_handler_t)handler;
+            eiointc_irq_desc[vector].param = param;
+#ifdef RT_USING_INTERRUPT_INFO
+            rt_snprintf(eiointc_irq_desc[vector].name, RT_NAME_MAX - 1, "%s", name);
+            eiointc_irq_desc[vector].counter = 0;
+#endif
+        }
+    }
+
+    return old_handler;
+}
+
+#define VEC_COUNT_PER_REG 64
+
+void platform_generic_irq()
+{
+	int i;
+	unsigned long pending;
+	for (i = 0; i < EIOINTC_MAX_HANDLERS / VEC_COUNT_PER_REG; i++) {
+		pending = iocsr_read64(EIOINTC_REG_ISR + (i << 3));
+
+		/* Skip handling if pending bitmap is zero */
+		if (!pending)
+			continue;
+
+		/* Clear the IRQs */
+		iocsr_write64(pending, EIOINTC_REG_ISR + (i << 3));
+		while (pending) {
+			int bit = ffs(pending)-1;
+			int irq = bit + VEC_COUNT_PER_REG * i;
+
+			eiointc_irq_desc[irq].handler(irq, eiointc_irq_desc[irq].param);
+			pending &= ~(1UL << (bit));
+		}
+	}
+}
 
