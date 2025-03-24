@@ -33,6 +33,7 @@
 #define IOREMAP_VEND 0ul
 #endif /* ARCH_REMAP_KERNEL */
 
+#define KERNEL_PVADDR_OFFSET (-0x9000000000000000L)
 
 #ifdef RT_USING_SMART
 rt_region_t init_page_region = {(rt_size_t)RT_HW_PAGE_START, (rt_size_t)RT_HW_PAGE_END};
@@ -50,6 +51,9 @@ struct mem_desc platform_mem_desc[] = {
 
 void rt_hw_board_init(void)
 {
+    // We must set pv offset before init.
+    rt_kmem_pvoff_set(KERNEL_PVADDR_OFFSET);
+
 #ifdef RT_USING_SMART
     /* init data structure */
     rt_hw_mmu_map_init(&rt_kernel_space, (void *)(IOREMAP_VEND - IOREMAP_SIZE), IOREMAP_SIZE, (rt_size_t *)MMUTable, PV_OFFSET);

@@ -22,7 +22,7 @@
 /* VirtIO */
 #define VIRTIO_MMIO_BASE    0x8000000030001000
 #define VIRTIO_MMIO_SIZE    0x00001000
-#define VIRTIO_MAX_NR       1
+#define VIRTIO_MAX_NR       6
 #define VIRTIO_IRQ_BASE     0x10
 #define VIRTIO_VENDOR_ID    0x554d4551  /* "QEMU" */
 

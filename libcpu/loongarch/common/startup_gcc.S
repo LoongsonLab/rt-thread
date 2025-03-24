@@ -35,7 +35,7 @@ _start:
 	csrwr	t0, LOONGARCH_CSR_CRMD
 	li.w	t0, 0x04		# PLV=0, PIE=1, PWE=0
 	csrwr	t0, LOONGARCH_CSR_PRMD
-	li.w	t0, 0x00		# FPE=0, SXE=0, ASXE=0, BTE=0
+	li.w	t0, 0x01		# FPE=0, SXE=0, ASXE=0, BTE=0
 	csrwr	t0, LOONGARCH_CSR_EUEN
 
 	/* Clear BSS */

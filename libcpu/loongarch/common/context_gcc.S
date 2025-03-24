@@ -69,10 +69,10 @@ rt_hw_context_switch_to:
     jr   ra
 
 
-.global cpu_idle
-cpu_idle:
-	idle   0x0
-	ret
+# .global cpu_idle
+# cpu_idle:
+# 	idle   0x0
+# 	ret
 
 
 
