@@ -12,6 +12,7 @@
  * Date           Author       Notes
  * 2025-03-10     LoongsonLab  the first version
  * 2025-03-13     LoongsonLab  Add CSR operation
+ * 2025-03-13     LoongsonLab  Add TLB Refill operations
  */
 
 #ifndef _ASM_LOONGARCH_H
@@ -173,6 +174,25 @@
 
 #define LOONGARCH_CSR_EENTRY		0xc	/* Exception entry */
 
+/* TLB related CSR registers */
+#define LOONGARCH_CSR_TLBIDX		0x10	/* TLB Index, EHINV, PageSize, NP */
+#define  CSR_TLBIDX_EHINV_SHIFT		31
+#define  CSR_TLBIDX_EHINV		(_ULCAST_(1) << CSR_TLBIDX_EHINV_SHIFT)
+#define  CSR_TLBIDX_PS_SHIFT		24
+#define  CSR_TLBIDX_PS_WIDTH		6
+#define  CSR_TLBIDX_PS			(_ULCAST_(0x3f) << CSR_TLBIDX_PS_SHIFT)
+#define  CSR_TLBIDX_IDX_SHIFT		0
+#define  CSR_TLBIDX_IDX_WIDTH		12
+#define  CSR_TLBIDX_IDX			(_ULCAST_(0xfff) << CSR_TLBIDX_IDX_SHIFT)
+#define  CSR_TLBIDX_SIZEM		0x3f000000
+#define  CSR_TLBIDX_SIZE		CSR_TLBIDX_PS_SHIFT
+#define  CSR_TLBIDX_IDXM		0xfff
+#define  CSR_INVALID_ENTRY(e)		(CSR_TLBIDX_EHINV | e)
+
+#define LOONGARCH_CSR_TLBEHI		0x11	/* TLB EntryHi */
+
+
+
 #define LOONGARCH_CSR_ASID		0x18	/* ASID */
 #define  CSR_ASID_BIT_SHIFT		16	/* ASIDBits */
 #define  CSR_ASID_BIT_WIDTH		8
@@ -229,7 +249,7 @@
 
 #define LOONGARCH_CSR_STLBPGSIZE	0x1e
 #define  CSR_STLBPGSIZE_PS_WIDTH	6
-#define  CSR_STLBPGSIZE_PS		(_ULCAST_(0x3f))
+#define  CSR_STLBPGSIZE_PS		    (_ULCAST_(0x3f))
 
 
 /* KSave registers */
@@ -275,6 +295,21 @@
 
 #define DMW_PABITS	48
 
+/* TLB Refill registers */
+#define LOONGARCH_CSR_TLBRENTRY		0x88	/* TLB refill exception entry */
+#define LOONGARCH_CSR_TLBRBADV		0x89	/* TLB refill badvaddr */
+#define LOONGARCH_CSR_TLBRERA		0x8a	/* TLB refill ERA */
+#define LOONGARCH_CSR_TLBRSAVE		0x8b	/* KSave for TLB refill exception */
+#define LOONGARCH_CSR_TLBRELO0		0x8c	/* TLB refill entrylo0 */
+#define LOONGARCH_CSR_TLBRELO1		0x8d	/* TLB refill entrylo1 */
+#define LOONGARCH_CSR_TLBREHI		0x8e	/* TLB refill entryhi */
+#define  CSR_TLBREHI_PS_SHIFT		0
+#define  CSR_TLBREHI_PS			(_ULCAST_(0x3f) << CSR_TLBREHI_PS_SHIFT)
+#define LOONGARCH_CSR_TLBRPRMD		0x8f	/* TLB refill mode info */
+
+/* Machine Error registers */
+#define LOONGARCH_CSR_MERRCTL		0x90	/* MERRCTL */
+#define LOONGARCH_CSR_MERRENTRY		0x93	/* MError exception entry */
 
 /* Direct Map windows registers */
 #define LOONGARCH_CSR_DMWIN0		0x180	/* 64 direct map win0: MEM & IF */
@@ -408,6 +443,18 @@ static inline unsigned long clear_csr_ecfg(unsigned long clear)
 	new_val = res & ~clear;
 	write_csr_ecfg(new_val);
 	return res;
+}
+
+
+static inline void write_csr_pagesize(unsigned int size)
+{
+	csr_xchg32(size << CSR_TLBIDX_SIZE, CSR_TLBIDX_SIZEM, LOONGARCH_CSR_TLBIDX);
+}
+#define write_csr_stlbpgsize(val)	csr_write32(val, LOONGARCH_CSR_STLBPGSIZE)
+
+static inline void write_csr_tlbrefill_pagesize(unsigned int size)
+{
+	csr_xchg64(size << CSR_TLBREHI_PS_SHIFT, CSR_TLBREHI_PS, LOONGARCH_CSR_TLBREHI);
 }
 
 #endif

@@ -6,15 +6,22 @@
  * Change Logs:
  * Date           Author       Notes
  * 2025-03-10     LoongsonLab  the first version
+ * 2025-03-22     LoongsonLab  fix tlb refill and page fault
+ * 2025-03-23     LoongsonLab  add soft and hardware ptw
  */
 
 #include <rtthread.h>
 #include <rthw.h>
 #include <mmu.h>
 
+#ifdef RT_USING_SMART
+#include <lwp.h>
+#endif
+
 #include "loongarch.h"
 #include "stack.h"
 #include "timer.h"
+#include "tlb.h"
 
 #define MAX_HANDLERS 128
 
@@ -45,6 +52,8 @@ extern void handle_sys(void);
 extern void handle_tlb_load_ptw(void);
 extern void handle_tlb_store_ptw(void);
 extern void handle_tlb_modify_ptw(void);
+
+extern void handle_tlb_sw_refill(void);
 
 /**
  * This function will un-mask a interrupt.
@@ -161,18 +170,30 @@ void *exception_table[EXCCODE_INT_START] = {
 void do_ade(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_ade exception occurred!!!\n");
+    rt_kprintf("Ra :\n");
+    rt_kprintf("    0x%lx\n", regs->r_ra);
+    rt_kprintf("Era:\n");
+    rt_kprintf("    0x%lx\n", regs->r_era);
 	while(1);
 }
 
 void do_ale(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_ale exception occurred!!!\n");
+    rt_kprintf("Ra :\n");
+    rt_kprintf("    0x%lx\n", regs->r_ra);
+    rt_kprintf("Era:\n");
+    rt_kprintf("    0x%lx\n", regs->r_era);
 	while(1);
 }
 
 void do_bce(struct pt_regs *regs) 
 {
 	rt_kprintf("UN-handled do_bce exception occurred!!!\n");
+    rt_kprintf("Ra :\n");
+    rt_kprintf("    0x%lx\n", regs->r_ra);
+    rt_kprintf("Era:\n");
+    rt_kprintf("    0x%lx\n", regs->r_era);
 	while(1);
 }
 
@@ -196,11 +217,11 @@ void do_fpu(struct pt_regs *regs)
 
 void do_ri(struct pt_regs *regs) 
 {
-	rt_uint64_t era, ra;
-	ra = regs->r_ra;
-	era = regs->r_era;
-	rt_kprintf("do_ri -> era : 0x%16lx\n, ra: 0x%16lx\n", era);
 	rt_kprintf("UN-handled do_ri exception occurred!!!\n");
+    rt_kprintf(" Ra:\n");
+    rt_kprintf("    0x%lx\n", regs->r_ra);
+    rt_kprintf("Era:\n");
+    rt_kprintf("    0x%lx\n", regs->r_era);
 	while (1);
 }
 
@@ -252,6 +273,85 @@ void do_rt_dispatch_trap(struct pt_regs *regs)
 	}
 }
 
+#ifdef RT_USING_SMART
+void do_page_fault(struct pt_regs *regs)
+{
+	rt_ubase_t id = (read_csr_estat() & CSR_ESTAT_EXC ) >> CSR_ESTAT_EXC_SHIFT;
+	rt_ubase_t estat = read_csr_estat();
+    struct rt_lwp *lwp;
+    rt_base_t saved_stat;
+	/* user page fault */
+    enum rt_mm_fault_op fault_op;
+    enum rt_mm_fault_type fault_type;
+    switch (id)
+    {
+        case MMU_STAT_EXCODE_PIL: // load page invalid
+            fault_op = MM_FAULT_OP_READ;
+            fault_type = MM_FAULT_TYPE_PAGE_FAULT;
+            break;
+        case MMU_STAT_EXCODE_PIS: // store page invalid
+            fault_op = MM_FAULT_OP_WRITE;
+            fault_type = MM_FAULT_TYPE_PAGE_FAULT;
+            break;
+        case MMU_STAT_EXCODE_PIF: // fetch instruction page invalid
+            fault_op = MM_FAULT_OP_EXECUTE;
+            fault_type = MM_FAULT_TYPE_PAGE_FAULT;
+            break;
+        case MMU_STAT_EXCODE_PME: // page modified
+            fault_op = MM_FAULT_OP_WRITE;
+            fault_type = MM_FAULT_TYPE_PAGE_FAULT;
+            break;
+        default:
+            fault_op = 0;
+            fault_type = MM_FAULT_TYPE_GENERIC;
+    }
+    if (fault_op)
+    {
+        lwp = lwp_self();
+        struct rt_aspace_fault_msg msg = {
+            .fault_op = fault_op,
+            .fault_type = fault_type,
+            .fault_vaddr = (void *)regs->r_bvaddr,
+        };
+
+        saved_stat = rt_hw_interrupt_disable();
+        if (!lwp)
+        	goto bad_varea;
+        if (rt_aspace_fault_try_fix(lwp->aspace, &msg)) {
+            if (id == MMU_STAT_EXCODE_PME) {
+                // Page existed
+                rt_hw_mmu_update_modify_page(lwp->aspace, regs->r_bvaddr);
+            }
+            goto good_varea;
+        }
+    }
+
+bad_varea:
+	// if return from rt_aspace_fault_try_fix is false, 
+    // but if PME, this seems as valid operation
+	// if (fault_op == MM_FAULT_OP_WRITE)
+	// 	goto good_varea;
+	rt_hw_interrupt_enable(saved_stat);
+    rt_thread_t cur_thr = rt_thread_self();
+    struct rt_hw_backtrace_frame frame = {.fp = regs->r_fp, .pc = regs->r_era};
+	rt_kprintf("fp = %p, era = %p\n", frame.fp, frame.pc);
+    lwp_backtrace_frame(cur_thr, &frame);
+    sys_exit_group(-1);
+
+good_varea:
+	rt_hw_interrupt_enable(saved_stat);
+	// update tlb and validate page
+    rt_hw_tlb_invalidate_all_local();
+    return;
+}
+
+#else
+void do_page_fault(struct pt_regs *regs)
+{
+	rt_kprintf("UN-handled do_page_fault exception occurred!!!\n");
+	while(1);
+}
+#endif
 
 #define SZ_4K		0x00001000
 #define SZ_8K		0x00002000
@@ -276,7 +376,13 @@ static void setup_vint_size(unsigned int size)
 static void configure_exception_vector(void)
 {
 	eentry    = (unsigned long)exception_handlers;
+	tlbrentry = (unsigned long)exception_handlers + 80*VECSIZE;
+
 	csr_write64(eentry, LOONGARCH_CSR_EENTRY);
+	csr_write64(eentry, LOONGARCH_CSR_MERRENTRY);
+#ifdef LOONGARCH_SOFTWARE_PTW
+	csr_write64(tlbrentry, LOONGARCH_CSR_TLBRENTRY);
+#endif
 }
 
 /* Install CPU exception handler */
@@ -304,6 +410,14 @@ void trap_init(void)
 	/* Set exception vector handler */
 	for (i = EXCCODE_ADE; i <= EXCCODE_BTDIS; i++)
 		set_handler(i * VECSIZE, exception_table[i], VECSIZE);
+
+	for (int i = EXCCODE_TLBL; i <= EXCCODE_TLBPE; i++)
+		set_handler(i * VECSIZE, exception_table[i], VECSIZE);
+
+#ifdef LOONGARCH_SOFTWARE_PTW
+	memcpy((void *)tlbrentry, handle_tlb_sw_refill, 0x80);
+	__asm__ volatile ("\tibar 0\n"::);
+#endif
 
 	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IPI | ECFGF_PMC);
 

@@ -23,10 +23,12 @@ extern unsigned int __bss_end;
 #define KERNEL_VADDR_START 0x0
 #endif
 
+#define RT_HW_MPR_SIZE  (64 * 1024 * 1024)
+
 #define RT_HW_HEAP_BEGIN ((void *)&__bss_end)
-#define RT_HW_HEAP_END   ((void *)(RT_HW_HEAP_BEGIN + 128 * 1024 * 1024))
+#define RT_HW_HEAP_END   ((void *)(RT_HW_HEAP_BEGIN + 64 * 1024 * 1024))
 #define RT_HW_PAGE_START RT_HW_HEAP_END
-#define RT_HW_PAGE_END   ((void *)(KERNEL_VADDR_START + (256 * 1024 * 1024)))
+#define RT_HW_PAGE_END   ((void *)(KERNEL_VADDR_START + (256 * 1024 * 1024) - RT_HW_MPR_SIZE))
 
 void rt_hw_board_init(void);
 

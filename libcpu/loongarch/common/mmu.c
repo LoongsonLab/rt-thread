@@ -6,6 +6,9 @@
  * Change Logs:
  * Date           Author       Notes
  * 2025-03-10     LoongsonLab  the first version
+ * 2025-03-22     LoongsonLab  fix tlb refill and page fault
+ * 2025-03-23     LoongsonLab  fix map_one_page_4K, not page ref
+ * 2025-03-27     LoongsonLab  fix unmap_one_page_4K, free not used pages
  */
 
 
@@ -25,6 +28,7 @@
 #include <board.h>
 #include <mm_aspace.h>
 #include <mm_page.h>
+#include <mm_private.h>
 
 #include "mmu.h"
 #include "loongarch.h"
@@ -59,6 +63,19 @@ void *rt_hw_mmu_tbl_get()
 	return current_mmu_table;
 }
 
+
+/**
+ * @brief Unmap a page table use vaddr and physic address.
+ *
+ * This function umap 4K page and set three level page table.
+ *
+ * @param aspace Pointer to the address space structure containing the page table information.
+ * @param v_addr The starting virtual address to be mapped.
+ * 
+ * @return On success, returns 0,
+ *         On failure, returns error code.
+ * 
+ */
 static int unmap_one_page_4K(struct rt_aspace *aspace, void *v_addr) {
 	int ret = 0;
 	int i = 0;
@@ -68,9 +85,6 @@ static int unmap_one_page_4K(struct rt_aspace *aspace, void *v_addr) {
 	unsigned int map_level = MMU_PG_LEVEL;
 	unsigned int mmu_pg_shift = 39 - ARCH_PAGE_LEVEL_SHIFT;
 	rt_ubase_t *map_level_tbl = ((rt_ubase_t *)aspace->page_table);
-
-	unsigned long save_pre_level_tlb = map_level_tbl;
-
 	unsigned long *need_free_pages[MMU_PG_LEVEL] = {0};
 
 	while(map_level > 0) 
@@ -81,13 +95,22 @@ static int unmap_one_page_4K(struct rt_aspace *aspace, void *v_addr) {
 		if (page)
 		{
 			page &= ARCH_PAGE_ADDRESS_MASK;
+
+            if (!page) // TODO: if page table occurs error?
+                return 0;
+            page = ARCH_PAGE_VA_MASK(page);
+
 			ret = rt_page_ref_get(page, 0);
 			if (ret == 1)
 			{
 				rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, map_level_tbl + level_off, sizeof(void *));
-				need_free_pages[map_level] = page;
+                if (map_level > 1)
+                    need_free_pages[map_level] = ARCH_PAGE_PA2VA(page);
 			}
-		}
+		} else {
+            // when level page is null, we stop walk and return.
+            return 0;
+        }
 		// update tbl
 		map_level--;
 		map_level_tbl = page;
@@ -105,13 +128,28 @@ static int unmap_one_page_4K(struct rt_aspace *aspace, void *v_addr) {
 	return 0;
 }
 
+/**
+ * @brief Map a page table use vaddr and physic address.
+ *
+ * This function map 4K page and set three level page table.
+ *
+ * @param aspace Pointer to the address space structure containing the page table information.
+ * @param v_addr The starting virtual address to be mapped.
+ * @param p_addr The starting physical address to be mapped.
+ * 
+ * @return On success, returns 0,
+ *         On failure, returns error code.
+ * 
+ * @note Current configuration only support 3 Level Page Table Map and Max width of VA
+ *       is 39. The Page Size is only 4KB, in the future we will support 2M and 1G mappings.
+ * 
+ */
 static int map_one_page_4K(struct rt_aspace *aspace, void *v_addr, void *p_addr, unsigned long attr) {
-	int ret = 0;
-	unsigned long map_level_vaddr = v_addr;
-	unsigned long page = 0;
-	unsigned int level_off = 0;
-	unsigned int map_level = MMU_PG_LEVEL;
-	unsigned int mmu_pg_shift = 39 - ARCH_PAGE_LEVEL_SHIFT;
+    unsigned long page = 0;
+    unsigned long map_level_vaddr = v_addr;
+    unsigned int level_off = 0;
+    unsigned int map_level = MMU_PG_LEVEL;
+    unsigned int mmu_pg_shift = 39 - ARCH_PAGE_LEVEL_SHIFT;
 	rt_ubase_t *map_level_tbl = ((rt_ubase_t *)aspace->page_table);
 
 	// 1. judge va if illegal 
@@ -133,10 +171,11 @@ static int map_one_page_4K(struct rt_aspace *aspace, void *v_addr, void *p_addr,
 		if (page)
 		{
 			// 2.1 find a valid level
-			if (page & ~ARCH_PAGE_MASK)
+			if (page & ARCH_PAGE_MASK) // align page size
 				return MMU_MAP_ERROR_PANOTALIGN;
 
 			// 2.2 increase ref
+            page = ARCH_PAGE_VA_MASK(page); // virtual address
 			page &= ARCH_PAGE_ADDRESS_MASK;
 			rt_page_ref_inc((void *)page, 0);
 			
@@ -153,6 +192,7 @@ static int map_one_page_4K(struct rt_aspace *aspace, void *v_addr, void *p_addr,
 		{
 			// 3.1 alloca a page 
 			page = (unsigned long)rt_pages_alloc_ext(0, PAGE_ANY_AVAILABLE);
+
 			if (!page)
 			{
 				unmap_one_page_4K(aspace, v_addr);
@@ -163,7 +203,7 @@ static int map_one_page_4K(struct rt_aspace *aspace, void *v_addr, void *p_addr,
 			rt_memset((void *)page, 0, ARCH_PAGE_SIZE);
 			rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, (void *)page, ARCH_PAGE_SIZE);
 
-			map_level_tbl[level_off] = (rt_ubase_t)page;
+			map_level_tbl[level_off] = (rt_ubase_t)ARCH_PAGE_PA_MASK(page);
 			rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, map_level_tbl + level_off, sizeof(void *));
 
 			// 3.3 update
@@ -174,18 +214,36 @@ static int map_one_page_4K(struct rt_aspace *aspace, void *v_addr, void *p_addr,
 	} while (map_level > 1);
 
 	// here, handle PTE.
-	attr |= 0x0;
+handle_pte:
+	attr |= 0x0; // TODO: if handle NO_EXEC flags?
 	p_addr = ((unsigned long)p_addr) | attr;
-	level_off = map_level_vaddr >> mmu_pg_shift;
+
+    level_off = map_level_vaddr >> mmu_pg_shift;
 	level_off &= ARCH_PAGE_LEVEL_MASK;
 	map_level_tbl[level_off] = p_addr;
-	rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, map_level_tbl + level_off, sizeof(void *));
+
+    rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, map_level_tbl + level_off, sizeof(void *));
 
 	return 0;
 }
 
-
-
+/**
+ * @brief Judge vaddr address which is a Kernel address.
+ *
+ * This function judges a virtual addresses if in rang of 0x9000xxxx_xxxxxxxx
+ *
+ * @param vaddr The starting virtual address to be mapped.
+ * @return On kernel address, returns 1,
+ *         On user space address, returns 0.
+ */
+static int rt_hw_mmu_kernel(void *vaddr)
+{
+    if (((unsigned long )vaddr >= (unsigned long )KERNEL_VADDR_START) &&
+        ((unsigned long )vaddr < (unsigned long )KERNEL_VADDR_END))
+        return 1;
+    else
+        return 0; // user space
+}
 
 /**
  * @brief Maps a virtual address space to a physical address space.
@@ -215,6 +273,10 @@ void *rt_hw_mmu_map(struct rt_aspace *aspace, void *v_addr, void *p_addr,
 	int ret = -1;
 	void *unmap_va = v_addr;
 	size_t npages = size >> ARCH_PAGE_SHIFT;
+
+    // if we are in kernel space, and return virtual
+    if (rt_hw_mmu_kernel(v_addr))
+        return unmap_va;
 
 	/* TODO trying with HUGEPAGE here */
 	while (npages--)
@@ -276,7 +338,6 @@ void rt_hw_mmu_unmap(struct rt_aspace *aspace, void *v_addr, size_t size)
 	{
 		return;
 	}
-	size_t unmapped = 0;
 
 	while (npages > 0)
 	{
@@ -292,9 +353,10 @@ void rt_hw_mmu_unmap(struct rt_aspace *aspace, void *v_addr, size_t size)
 #ifdef RT_USING_SMART
 static void _init_region(void *vaddr, size_t size)
 {
-	rt_ioremap_start = vaddr;
-	rt_ioremap_size = size;
-	rt_mpr_start = (char *)rt_ioremap_start - rt_mpr_size;
+    rt_ioremap_start = vaddr;
+    rt_ioremap_size = size;
+    rt_mpr_start = rt_ioremap_start - rt_mpr_size;
+    LOG_D("rt_ioremap_start: %p, rt_mpr_start: %p", rt_ioremap_start, rt_mpr_start);
 }
 #else
 static inline void _init_region(void *vaddr, size_t size)
@@ -321,8 +383,8 @@ int rt_hw_mmu_map_init(rt_aspace_t aspace, void *v_address, rt_ubase_t size,
 	    return -1;
 	}
 
-	va_s >>= 21;
-	va_e >>= 21;
+	va_s >>= MMU_PG_LEVEL_3_SHIFT;
+	va_e >>= MMU_PG_LEVEL_3_SHIFT;
 
 	if (va_s == 0)
 	{
@@ -338,12 +400,8 @@ int rt_hw_mmu_map_init(rt_aspace_t aspace, void *v_address, rt_ubase_t size,
 }
 
 
-
 static rt_ubase_t *_query(struct rt_aspace *aspace, void *vaddr, int *level_shift)
 {
-
-	int ret = 0;
-	int i = 0;
 	unsigned long map_level_vaddr = vaddr;
 	unsigned long page = 0;
 	unsigned long page_ppn = 0;
@@ -376,16 +434,17 @@ static rt_ubase_t *_query(struct rt_aspace *aspace, void *vaddr, int *level_shif
 				*level_shift = map_level;
 				return (void *)0;
 			}
+            goto find_entry;;
 		}
 		map_level--;
-		map_level_tbl = page;
+		map_level_tbl = ARCH_PAGE_VA_MASK(page);
 		mmu_pg_shift -= ARCH_PAGE_LEVEL_SHIFT;
 	}
 
+find_entry:
 	*level_shift = mmu_pg_shift;
 	return page_pte;
 }
-
 
 
 /**
@@ -431,6 +490,60 @@ void *rt_hw_mmu_v2p(struct rt_aspace *aspace, void *vaddr)
 	return (void *)paddr;
 }
 
+
+/**
+ * @brief Modify Page Table Attributes.
+ *
+ * In LoongArch, if instruction store write a page, but underlying tlb attributes
+ * of this page is NOT DIRTY (in bit 1), this will raise a PME exception.
+ *  
+ * This function set page table attribute is dirty.
+ *
+ * @param aspace Pointer to the address space structure containing the page table information.
+ * @param v_addr The starting virtual address to be mapped.
+ * 
+ * @return On success, returns 0,
+ *         On has been modified, returns 1.
+ */
+int rt_hw_mmu_update_modify_page(rt_aspace_t aspace, rt_ubase_t *fault_vaddr)
+{
+	int level_shift;
+	unsigned long paddr;
+	unsigned long pte_entry;
+	unsigned long new_pte_entry;
+	int ret = 0;
+	
+    if (aspace)
+    {
+        rt_varea_t varea;
+
+        RD_LOCK(aspace);
+        varea = _aspace_bst_search(aspace, fault_vaddr);
+        if (varea)
+        {
+            unsigned long *pte = _query(aspace, fault_vaddr, &level_shift);
+            pte_entry = *pte;
+            if (!(pte_entry & MMU_PAGE_DIRTY))
+            {
+                new_pte_entry = pte_entry | MMU_PAGE_DIRTY;
+                *pte = new_pte_entry;
+
+                ret = 0;
+
+                rt_hw_cpu_dcache_ops(RT_HW_CACHE_FLUSH, pte, sizeof(unsigned long));
+                // update tlb
+                rt_hw_tlb_invalidate_all_local();
+            } 
+            else
+            	ret = 1;
+        }
+
+        RD_UNLOCK(aspace);
+    }
+    return ret;
+}
+
+
 static int _noncache(rt_base_t *pte)
 {
     return 0;
@@ -447,8 +560,6 @@ static int (*control_handler[MMU_CNTL_DUMMY_END])(rt_base_t *pte)=
 	[MMU_CNTL_CACHE] = _cache,
 	[MMU_CNTL_NONCACHE] = _noncache,
 };
-
-
 
 
 int rt_hw_mmu_control(struct rt_aspace *aspace, void *vaddr, size_t size,
@@ -537,7 +648,6 @@ void rt_hw_mmu_setup(rt_aspace_t aspace, struct mem_desc *mdesc, int desc_nr)
 	rt_hw_aspace_switch(&rt_kernel_space);
 	rt_page_cleanup();
 }
-
 
 
 /**

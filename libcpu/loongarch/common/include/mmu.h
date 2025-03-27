@@ -6,6 +6,7 @@
  * Change Logs:
  * Date           Author       Notes
  * 2025-03-10     LoongsonLab  the first version
+ * 2025-03-16     LoongsonLab  add and fix page table attributes
  */
 
 #ifndef _ASM_MMU_H
@@ -47,15 +48,18 @@ struct mem_desc
 #define ARCH_PAGE_LEVEL_MASK  ((1 << ARCH_PAGE_LEVEL_SHIFT) - 1)
 #define ARCH_PAGE_ADDRESS_MASK 0xfffffffffffff000UL
 
-#define ARCH_PAGE_BIT_V 0x1
+#define MMU_PG_LEVEL_3_VA_WIDTH  (39)
+#define MMU_PG_LEVEL_3_SHIFT     (MMU_PG_LEVEL_3_VA_WIDTH - ARCH_PAGE_LEVEL_SHIFT)
+#define MMU_PG_LEVEL_2_SHIFT     (MMU_PG_LEVEL_3_SHIFT - ARCH_PAGE_LEVEL_SHIFT)
+#define MMU_PG_LEVEL_1_SHIFT     (MMU_PG_LEVEL_2_SHIFT - ARCH_PAGE_LEVEL_SHIFT)
 
-#define MMU_MAP_K_DEVICE   0x0
-#define MMU_MAP_K_RWCB   0x0
-#define MMU_MAP_K_RW   0x0
-#define MMU_MAP_U_RWCB   0x0
-#define MMU_MAP_U_RWCB_XN   0x0
-#define MMU_MAP_U_RW   0x0
-#define MMU_MAP_EARLY   0x0
+// #define ARCH_PAGE_PA_MASK(x) (x & 0x0000ffffffffffffUL)
+// #define ARCH_PAGE_VA_MASK(x) (x | 0x9000000000000000UL)
+
+#define ARCH_PAGE_PA_MASK(x) (x)
+#define ARCH_PAGE_VA_MASK(x) (x)
+
+#define ARCH_PAGE_PA2VA(x) (x | 0x9000000000000000UL)
 
 #define RT_HW_MMU_PROT_READ    1
 #define RT_HW_MMU_PROT_WRITE   2
@@ -69,7 +73,58 @@ struct mem_desc
 
 #define PHYSICAL_ADDRESS_WIDTH_BITS 56
 
-#define ARCH_VADDR_WIDTH 39
+#define ARCH_VADDR_WIDTH 32
+
+
+/* Page table bits */
+#define MMU_PAGE_VALID_SHIFT   0
+#define MMU_PAGE_ACCESSED_SHIFT    0  /* Reuse Valid for Accessed */
+#define MMU_PAGE_DIRTY_SHIFT   1
+#define MMU_PAGE_PLV_SHIFT     2  /* 2~3, two bits */
+#define MMU_CACHE_SHIFT        4  /* 4~5, two bits */
+#define MMU_PAGE_GLOBAL_SHIFT  6
+#define MMU_PAGE_HUGE_SHIFT    6  /* HUGE is a PMD bit */
+#define MMU_PAGE_PRESENT_SHIFT 7
+#define MMU_PAGE_WRITE_SHIFT   8
+#define MMU_PAGE_MODIFIED_SHIFT    9
+#define MMU_PAGE_PROTNONE_SHIFT    10
+#define MMU_PAGE_SPECIAL_SHIFT 11
+#define MMU_PAGE_HGLOBAL_SHIFT 12 /* HGlobal is a PMD bit */
+
+#define MMU_PAGE_NO_READ_SHIFT 61
+#define MMU_PAGE_NO_EXEC_SHIFT 62
+#define MMU_PAGE_RPLV_SHIFT    63
+
+#define PLV_KERN            0
+#define PLV_USER            3
+#define PLV_MASK            0x3
+
+#define MMU_PAGE_USER     (PLV_USER << MMU_PAGE_PLV_SHIFT)
+#define MMU_PAGE_KERN     (PLV_KERN << MMU_PAGE_PLV_SHIFT)
+
+#define MMU_CACHE_SUC     (0 << MMU_CACHE_SHIFT) /* Strong-ordered UnCached */
+#define MMU_CACHE_CC      (1 << MMU_CACHE_SHIFT) /* Coherent Cached */
+
+#define MMU_PAGE_DIRTY    (1 << MMU_PAGE_DIRTY_SHIFT)
+#define MMU_PAGE_VALID    (1 << MMU_PAGE_VALID_SHIFT)
+#define MMU_PAGE_ACCESSED (1 << MMU_PAGE_ACCESSED_SHIFT)
+#define MMU_PAGE_WRITE    (1 << MMU_PAGE_WRITE_SHIFT)
+#define MMU_PAGE_NO_EXEC  (1 << MMU_PAGE_NO_EXEC_SHIFT)
+#define MMU_PAGE_GLOBAL   (1 << MMU_PAGE_GLOBAL_SHIFT)
+
+#define MMU_PAGE_ATTR_EXE (1 << MMU_PAGE_SPECIAL_SHIFT)
+
+#define ARCH_PAGE_BIT_V     MMU_PAGE_VALID
+
+#define MMU_MAP_K_DEVICE   (MMU_PAGE_KERN | MMU_PAGE_GLOBAL | MMU_PAGE_VALID | MMU_PAGE_WRITE | MMU_CACHE_SUC)
+#define MMU_MAP_K_RWCB     (MMU_PAGE_KERN | MMU_PAGE_GLOBAL | MMU_PAGE_VALID | MMU_PAGE_WRITE | MMU_CACHE_CC)
+#define MMU_MAP_K_RW       (MMU_PAGE_KERN | MMU_PAGE_GLOBAL | MMU_PAGE_VALID | MMU_PAGE_WRITE | MMU_CACHE_CC)
+#define MMU_MAP_U_RWCB     (MMU_PAGE_USER | MMU_PAGE_VALID | MMU_PAGE_WRITE | MMU_CACHE_CC)
+#define MMU_MAP_U_RWCB_XN  (MMU_PAGE_USER | MMU_PAGE_VALID | MMU_PAGE_WRITE | MMU_CACHE_CC | MMU_PAGE_NO_EXEC)
+#define MMU_MAP_U_RW       (MMU_PAGE_USER | MMU_PAGE_VALID | MMU_PAGE_WRITE | MMU_CACHE_CC)
+#define MMU_MAP_EARLY      (MMU_PAGE_KERN | MMU_PAGE_GLOBAL | MMU_PAGE_VALID | MMU_PAGE_WRITE | MMU_CACHE_CC)
+
+#define MMU_DEFAULT_USER_ATTR  MMU_MAP_U_RWCB
 
 
 #ifdef RT_USING_SMART
@@ -107,6 +162,9 @@ void rt_hw_aspace_switch(rt_aspace_t aspace);
 void *rt_hw_mmu_v2p(rt_aspace_t aspace, void *vaddr);
 
 void *rt_hw_mmu_tbl_get(void);
+
+int rt_hw_mmu_update_modify_page(rt_aspace_t aspace, rt_ubase_t *vaddr);
+
 #endif
 
 /**
@@ -118,20 +176,20 @@ void *rt_hw_mmu_tbl_get(void);
  */
 rt_inline size_t rt_hw_mmu_attr_rm_perm(size_t attr, rt_base_t prot)
 {
-    // switch (prot)
-    // {
-    //     /* remove write permission for user */
-    //     case RT_HW_MMU_PROT_WRITE | RT_HW_MMU_PROT_USER:
-    //         attr &= ~PTE_W;
-    //         break;
-    //     /* remove write permission for kernel */
-    //     case RT_HW_MMU_PROT_WRITE | RT_HW_MMU_PROT_KERNEL:
-    //         attr &= ~PTE_W;
-    //         break;
-    //     default:
-    //         RT_ASSERT(0);
-    // }
-    return 0;
+    switch (prot)
+    {
+        /* remove write permission for user */
+        case RT_HW_MMU_PROT_WRITE | RT_HW_MMU_PROT_USER:
+            attr &= ~MMU_PAGE_WRITE;
+            break;
+        /* remove write permission for kernel */
+        case RT_HW_MMU_PROT_WRITE | RT_HW_MMU_PROT_KERNEL:
+            attr &= ~MMU_PAGE_WRITE;
+            break;
+        default:
+            RT_ASSERT(0);
+    }
+    return attr;
 }
 
 /**
@@ -143,18 +201,51 @@ rt_inline size_t rt_hw_mmu_attr_rm_perm(size_t attr, rt_base_t prot)
  */
 rt_inline size_t rt_hw_mmu_attr_add_perm(size_t attr, rt_base_t prot)
 {
-    // switch (prot)
-    // {
-    //     /* add write permission for user */
-    //     case RT_HW_MMU_PROT_WRITE | RT_HW_MMU_PROT_USER:
-    //         attr |= (PTE_R | PTE_W | PTE_U);
-    //         break;
-    //     default:
-    //         RT_ASSERT(0);
-    // }
-    return 0;
+    switch (prot)
+    {
+        /* add write permission for user */
+        case RT_HW_MMU_PROT_WRITE | RT_HW_MMU_PROT_USER:
+            attr |= (MMU_PAGE_USER | MMU_PAGE_VALID | MMU_PAGE_WRITE);
+            break;
+        default:
+            RT_ASSERT(0);
+    }
+    return attr;
 }
 
+
+/**
+ * @brief Test permission from attribution
+ *
+ * @param attr architecture specified mmu attribution
+ * @param prot protect that will be test
+ * @return rt_bool_t RT_TRUE if the prot is allowed, otherwise RT_FALSE
+ */
+rt_inline rt_bool_t rt_hw_mmu_attr_test_perm(size_t attr, rt_base_t prot)
+{
+    rt_bool_t rc = 0;
+    switch (prot & ~RT_HW_MMU_PROT_USER)
+    {
+        /* test write permission for user */
+        case RT_HW_MMU_PROT_WRITE:
+            rc = attr & MMU_PAGE_WRITE;
+            break;
+        case RT_HW_MMU_PROT_READ:
+            rc = attr & MMU_PAGE_ACCESSED;
+            break;
+         case RT_HW_MMU_PROT_EXECUTE:
+            rc = attr & MMU_PAGE_ATTR_EXE;
+            break;
+        default:
+            RT_ASSERT(0);
+    }
+
+    if (rc && (prot & RT_HW_MMU_PROT_USER))
+    {
+        rc = attr & MMU_PAGE_USER;
+    }
+    return rc;
+}
 
 #define MMU_MAP_ERROR_VANOTALIGN -1
 #define MMU_MAP_ERROR_PANOTALIGN -2
@@ -162,7 +253,6 @@ rt_inline size_t rt_hw_mmu_attr_add_perm(size_t attr, rt_base_t prot)
 #define MMU_MAP_ERROR_CONFLICT   -4
 
 
-// #define KERNEL_VADDR_START ((void *)0x9000000000000000)
 #define KERNEL_VADDR_SIZE  (0x1000000000000000)
 #define KERNEL_VADDR_END   ((void *)0x9000000000000000 + KERNEL_VADDR_SIZE - 1)
 

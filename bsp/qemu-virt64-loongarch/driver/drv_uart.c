@@ -139,7 +139,8 @@ int rt_hw_uart_init(void)
     struct rt_serial_device *serial;
     struct device_uart *uart;
     struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
-#ifdef RT_USING_SMART
+
+#if 0
     uart0_base = rt_ioremap(uart0_base, 4096);
 #endif
 

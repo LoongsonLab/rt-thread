@@ -20,8 +20,3 @@ void rt_hw_timer_handler(void);
 
 #endif /* _ASM_TIMER_H */
 
-
-
-
-
-

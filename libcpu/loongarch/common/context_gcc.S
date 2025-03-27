@@ -9,6 +9,7 @@
  * 2025-03-12     LoongsonLab  add debug info
  */
 
+#include "rtconfig.h"
 #include "asm-offsets.h"
 #include "asm-generic.h"
 #include "stackframe.h"
@@ -69,10 +70,10 @@ rt_hw_context_switch_to:
     jr   ra
 
 
-# .global cpu_idle
-# cpu_idle:
-# 	idle   0x0
-# 	ret
+.global cpu_idle
+cpu_idle:
+	idle   0x0
+	ret
 
 
 

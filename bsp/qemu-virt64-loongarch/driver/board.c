@@ -25,18 +25,21 @@
 #endif
 
 
-#define IOREMAP_SIZE (1ul << 30)
+#define IOREMAP_SIZE (1ul << 20)
 
 #ifndef ARCH_REMAP_KERNEL
-#define IOREMAP_VEND USER_VADDR_START
-#else
-#define IOREMAP_VEND 0ul
+#define IOREMAP_VSTART 0x9000000010000000
+#define IOREMAP_VEND (IOREMAP_VSTART + IOREMAP_SIZE)
 #endif /* ARCH_REMAP_KERNEL */
 
 #define KERNEL_PVADDR_OFFSET (-0x9000000000000000L)
 
+#define KERNEL_PHY_MASK (0x000fffffffffffffUL)
+
+#define KV2P(x) (((unsigned long)x) & KERNEL_PHY_MASK)
+
 #ifdef RT_USING_SMART
-rt_region_t init_page_region = {(rt_size_t)RT_HW_PAGE_START, (rt_size_t)RT_HW_PAGE_END};
+rt_region_t init_page_region = {(rt_size_t)(RT_HW_PAGE_START), (rt_size_t)(RT_HW_PAGE_END)};
 
 extern size_t MMUTable[];
 

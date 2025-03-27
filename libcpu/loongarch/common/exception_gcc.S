@@ -7,6 +7,7 @@
  * Date           Author       Notes
  * 2025-03-10     LoongsonLab  the first version
  * 2025-03-14     LoongsonLab  refactor exception routine
+ * 2025-03-22     LoongsonLab  fix tlb refill and page fault
  */
 
 #include "loongarch.h"
@@ -86,33 +87,72 @@ START_POINT_END(ret_from_exception)
 
 
 /* handle interrupt */
-    BUILD_HANDLER vint rt_dispatch_trap none
+BUILD_HANDLER vint rt_dispatch_trap none
 
-    BUILD_HANDLER ade ade badv
-    BUILD_HANDLER ale ale badv
-    BUILD_HANDLER bce bce none
-    BUILD_HANDLER bp bp none
-    BUILD_HANDLER fpe fpe fcsr
-    BUILD_HANDLER fpu fpu none
-    BUILD_HANDLER ri ri none
+BUILD_HANDLER ade ade badv
+BUILD_HANDLER ale ale badv
+BUILD_HANDLER bce bce none
+BUILD_HANDLER bp bp none
+BUILD_HANDLER fpe fpe fcsr
+BUILD_HANDLER fpu fpu none
+BUILD_HANDLER ri ri none
 
     .align 2
     .global trap_entry
 trap_entry:
+    /* We don't use unifid exception enter entry*/
+    b  trap_entry
     ret
 
 
 .global handle_tlb_load_ptw
 handle_tlb_load_ptw:
-    jirl     zero, ra, 0
+    // save t0,t1
+    BACKUP_T0T1
+    SAVE_ALL
+    csrrd       a2, LOONGARCH_CSR_BADV
+    move        a0, sp
+    LONG_ST     a2, sp, PT_BVADDR
+    la.abs      t0, do_page_fault
+    jirl        ra, t0, 0
+    RESTORE_ALL_AND_RET
 
 .global handle_tlb_store_ptw
 handle_tlb_store_ptw:
-    jirl     zero, ra, 0
+    // save t0,t1
+    BACKUP_T0T1
+    SAVE_ALL
+    csrrd       a2, LOONGARCH_CSR_BADV
+    move        a0, sp
+    LONG_ST     a2, sp, PT_BVADDR
+    la.abs      t0, do_page_fault
+    jirl        ra, t0, 0
+    RESTORE_ALL_AND_RET
 
 .global handle_tlb_modify_ptw
 handle_tlb_modify_ptw:
-    jirl     zero, ra, 0
+    // save t0,t1
+    BACKUP_T0T1
+    SAVE_ALL
+    csrrd       a2, LOONGARCH_CSR_BADV
+    move        a0, sp
+    LONG_ST     a2, sp, PT_BVADDR
+    la.abs      t0, do_page_fault
+    jirl        ra, t0, 0
+    RESTORE_ALL_AND_RET
+
+
+START_POINT(handle_tlb_sw_refill)
+    csrwr       t0, LOONGARCH_CSR_TLBRSAVE
+    csrrd       t0, LOONGARCH_CSR_PGD
+    lddir       t0, t0, 3
+    lddir       t0, t0, 1
+    ldpte       t0, 0
+    ldpte       t0, 1
+    tlbfill
+    csrrd       t0, LOONGARCH_CSR_TLBRSAVE
+    ertn
+START_POINT_END(handle_tlb_sw_refill)
 
 
 START_POINT(handle_sys)

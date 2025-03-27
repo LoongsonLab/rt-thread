@@ -240,6 +240,10 @@ config ARCH_LOONGARCH64
     select ARCH_CPU_64BIT
     bool
 
+if ARCH_LOONGARCH64
+    orsource "./loongarch/common/Kconfig"
+endif
+
 config ARCH_RISCV
     bool
 
