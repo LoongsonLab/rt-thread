@@ -40,7 +40,7 @@ Codename:	noble
 
 下载LoongArch64的GCC交叉编译器, 在[这里](https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/)。
 ``` shell
-$ wget https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/download/loongarch64-cross-toolchains/loongarch64-musl-gcc-nightly-2025-3-15.tar.gz
+$ wget https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/download/loongarch64-cross-toolchains-qemu/loongarch64-musl-gcc-nightly-2025-3-27.tar.gz
 
 # 解压到/opt下
 $ tar zxf loongarch64-musl-gcc-nightly-2025-3-15.tar.gz
