@@ -43,7 +43,7 @@ Codename:	noble
 $ wget https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/download/loongarch64-cross-toolchains-qemu/loongarch64-musl-gcc-nightly-2025-3-27.tar.gz
 
 # 解压到/opt下
-$ tar zxf loongarch64-musl-gcc-nightly-2025-3-15.tar.gz
+$ tar zxf loongarch64-musl-gcc-nightly-2025-3-27.tar.gz
 
 # 将/opt/loongarch64/bin添加到系统环境变量
 $ PATH=${PATH}:/opt/loongarch64/bin
