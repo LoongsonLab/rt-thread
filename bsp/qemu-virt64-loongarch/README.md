@@ -38,6 +38,8 @@ Codename:	noble
 
 ## 2.1. 安装工具链
 
+### 2.1.1 安装x86_64交叉编译器工具链
+
 下载LoongArch64的GCC交叉编译器, 在[这里](https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/)。
 ``` shell
 $ wget https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/download/loongarch64-cross-toolchains-qemu/loongarch64-musl-gcc-nightly-2025-3-27.tar.gz
@@ -62,11 +64,35 @@ gcc version 14.2.0 (GCC)
 
 ```
 
+### 2.1.2 安装LoongArc 本地(Native)编译器工具链
+
+下载LoongArch64本地的Musl库以及相关脚本, 在[这里](https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/)。
+``` shell
+$ wget https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/download/loongarch64-musl-native/musl-1.2.5.tar.gz
+
+# 解压到/opt下
+$ tar zxf musl-1.2.5.tar.gz
+
+# 设置和更新Musl库路径，可以查看musl-1.2.5下的README.md
+$ cd musl-1.2.5 && ./setup
+
+# 将/opt/musl-1.2.5/bin添加到系统环境变量
+$ PATH=${PATH}:/opt/musl-1.2.5/bin
+
+# 测试gcc
+$ musl-gcc -v
+
+```
+
 ## 2.2. 设置 RT-Thread 工具链环境变量
 
 RT-Thread 工具链相关的环境变量，根据上面解压的路径。
 ```shell
 $ export RTT_EXEC_PATH=/opt/loongarch64/bin
+```
+如果是LoongArch本地编译，设置如下：
+```shell
+$ export RTT_CC_PREFIX=musl-
 ```
 
 ## 2.3. 下载内核
