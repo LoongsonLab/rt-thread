@@ -64,7 +64,7 @@ gcc version 14.2.0 (GCC)
 
 ```
 
-### 2.1.2 安装LoongArc 本地(Native)编译器工具链
+### 2.1.2 安装LoongArch 本地(Native)编译器工具链
 
 下载LoongArch64本地的Musl库以及相关脚本, 在[这里](https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/)。
 ``` shell
