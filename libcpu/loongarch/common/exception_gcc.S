@@ -168,8 +168,9 @@ START_POINT_END(handle_sys)
  * a0 --> to level
  */
 .global rt_hw_interrupt_enable
-rt_hw_interrupt_enable: 
-    csrwr    a0, LOONGARCH_CSR_CRMD
+rt_hw_interrupt_enable:
+    li.w     t0, CSR_CRMD_IE
+    csrxchg  a0, t0, LOONGARCH_CSR_CRMD
     jirl     zero, ra, 0
 
 /*

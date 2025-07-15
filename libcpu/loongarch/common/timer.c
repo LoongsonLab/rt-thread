@@ -17,7 +17,7 @@
 /**
  * This function will initial OS timer
  */
-void rt_hw_timer_init(void)
+rt_weak void rt_hw_timer_init(void)
 {
     rt_uint64_t timer_config;
     rt_uint64_t int_val;
@@ -40,7 +40,7 @@ void rt_hw_timer_init(void)
 /**
  * This is the timer interrupt service routine.
  */
-void rt_hw_timer_handler(void)
+rt_weak void rt_hw_timer_handler(void)
 {
     unsigned long timer_config;
 

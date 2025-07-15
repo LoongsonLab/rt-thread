@@ -10,6 +10,7 @@
  * 2025-03-23     LoongsonLab  add soft and hardware ptw
  */
 
+#include "rttypes.h"
 #include <rtthread.h>
 #include <rthw.h>
 #include <mmu.h>
@@ -22,6 +23,7 @@
 #include "stack.h"
 #include "timer.h"
 #include "tlb.h"
+#include "break.h"
 
 #define MAX_HANDLERS 128
 
@@ -121,7 +123,7 @@ rt_weak void platform_generic_irq()
 }
 
 
-void rt_hw_interrupt_init()
+rt_weak void rt_hw_interrupt_init()
 {
     /* Enable machine external interrupts. */
     int idx = 0;
@@ -167,17 +169,19 @@ void *exception_table[EXCCODE_INT_START] = {
 };
 
 
-void do_ade(struct pt_regs *regs) 
+void do_ade(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_ade exception occurred!!!\n");
+    rt_kprintf("UN-handled do_ade exception occurred!!!\n");
     rt_kprintf("Ra :\n");
     rt_kprintf("    0x%lx\n", regs->r_ra);
     rt_kprintf("Era:\n");
     rt_kprintf("    0x%lx\n", regs->r_era);
-	while(1);
+    rt_kprintf("EsubCode:\n");
+    rt_kprintf("    0x%lx\n", ((read_csr_estat() & CSR_ESTAT_ESUBCODE) >> CSR_ESTAT_ESUBCODE_SHIFT));
+    while(1);
 }
 
-void do_ale(struct pt_regs *regs) 
+void do_ale(struct pt_regs *regs)
 {
 	rt_kprintf("UN-handled do_ale exception occurred!!!\n");
     rt_kprintf("Ra :\n");
@@ -187,46 +191,61 @@ void do_ale(struct pt_regs *regs)
 	while(1);
 }
 
-void do_bce(struct pt_regs *regs) 
+void do_bce(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_bce exception occurred!!!\n");
+    rt_kprintf("UN-handled do_bce exception occurred!!!\n");
     rt_kprintf("Ra :\n");
     rt_kprintf("    0x%lx\n", regs->r_ra);
     rt_kprintf("Era:\n");
     rt_kprintf("    0x%lx\n", regs->r_era);
-	while(1);
+    while(1);
 }
 
-void do_bp(struct pt_regs *regs) 
+void do_bp(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_bp exception occurred!!!\n");
-	while(1);
+    rt_uint64_t era = regs->r_era;
+    rt_uint32_t opcode = *(rt_uint32_t *)(era);
+    rt_uint32_t bcode = (opcode & 0x7fff);
+
+    rt_kprintf("era: %016lx, opcode: %08x\n", era, opcode);
+
+    switch (bcode)
+    {
+    case BRK_DIVZERO:
+        rt_kprintf("BRK_DIVZERO\n");
+        break;
+    default:
+        rt_kprintf("UN-handled do_bp exception occurred!!!\n");
+        break;
+    }
+
+    while(1);
 }
 
-void do_fpe(struct pt_regs *regs) 
+void do_fpe(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_fpe exception occurred!!!\n");
-	while(1);
+    rt_kprintf("UN-handled do_fpe exception occurred!!!\n");
+    while(1);
 }
 
-void do_fpu(struct pt_regs *regs) 
+void do_fpu(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_fpu exception occurred!!!\n");
-	while(1);
+    rt_kprintf("UN-handled do_fpu exception occurred!!!\n");
+    while(1);
 }
 
-void do_ri(struct pt_regs *regs) 
+void do_ri(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_ri exception occurred!!!\n");
+    rt_kprintf("UN-handled do_ri exception occurred!!!\n");
     rt_kprintf(" Ra:\n");
     rt_kprintf("    0x%lx\n", regs->r_ra);
     rt_kprintf("Era:\n");
     rt_kprintf("    0x%lx\n", regs->r_era);
-	while (1);
+    while (1);
 }
 
 
-void do_rt_dispatch_trap(struct pt_regs *regs) 
+void do_rt_dispatch_trap(struct pt_regs *regs)
 {
 	rt_uint64_t estat;
 	rt_thread_t thread = rt_thread_self();
@@ -237,38 +256,40 @@ void do_rt_dispatch_trap(struct pt_regs *regs)
 #endif
 	if ((estat & CSR_ESTAT_IS_IPI))
 	{
-	#if DEBUG_TRAP_TRACE
+#if DEBUG_TRAP_TRACE
 		rt_kprintf("---------- Enter Interrupt ----------\n");
 		rt_kprintf("      IPI Exception occurred!        \n");
-	#endif
+#endif
 		while (1);
 	} else if ((estat & CSR_ESTAT_IS_TI))
 	{
-	#if DEBUG_TRAP_TRACE
+#if DEBUG_TRAP_TRACE
 		rt_kprintf("---------- Enter Interrupt ----------\n");
 		rt_kprintf("     Timer Exception occurred!       \n");
-	#endif
-		write_csr_tintclear(CSR_TINTCLR_TI);
+#endif
 		rt_interrupt_enter();
+        write_csr_tintclear(CSR_TINTCLR_TI);
 		rt_hw_timer_handler();
 		rt_interrupt_leave();
 		return;
 	} else if ((estat & CSR_ESTAT_IS_HW))
 	{
-		write_csr_estat(estat & ~CSR_ESTAT_IS_HW);
+#if DEBUG_TRAP_TRACE
+		rt_kprintf("---------- Enter Interrupt ----------\n");
+		rt_kprintf("     Hardware Exception occurred: 0x%lx\n", estat);
+#endif
+        // fixme
+        // CSR_ESTAT_IS_HW is read-only
+        csr_xchg32(0x0, CSR_ESTAT_IS_HW, LOONGARCH_CSR_ESTAT);
 		rt_interrupt_enter();
 		platform_generic_irq();
 		rt_interrupt_leave();
-	#if DEBUG_TRAP_TRACE
-		rt_kprintf("---------- Enter Interrupt ----------\n");
-		rt_kprintf("     Hardware Exception occurred: 0x%lx\n", estat);
-	#endif
 		return;
 	} else {
-	#if DEBUG_TRAP_TRACE
+#if DEBUG_TRAP_TRACE
 		rt_kprintf("---------- Enter Interrupt ----------\n");
 		rt_kprintf("UN-handled rt_dispatch_trap exception occurred!!!\n");
-	#endif
+#endif
 		while(1);
 	}
 }
@@ -419,7 +440,7 @@ void trap_init(void)
 	__asm__ volatile ("\tibar 0\n"::);
 #endif
 
-	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IPI | ECFGF_PMC);
+	set_csr_ecfg(ECFGF_SIP0 | ECFGF_SIP1 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IP3 | ECFGF_IP4 | ECFGF_IP5 | ECFGF_IP6 | ECFGF_IP7 | ECFGF_IPI | ECFGF_PMC);
 
 }
 
