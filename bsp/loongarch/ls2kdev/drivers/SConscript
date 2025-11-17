@@ -1,6 +1,9 @@
 from building import *
 
 cwd = GetCurrentDir()
+# if use Rust driver
+#src = Glob('*.c') + Glob('*.cpp') + Glob('*_gcc.S') + Glob('*.a')
+# if use C driver
 src = Glob('*.c') + Glob('*.cpp') + Glob('*_gcc.S')
 
 CPPPATH = [cwd]

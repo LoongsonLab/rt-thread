@@ -1,78 +1,27 @@
 #ifndef __LS2K_AHCI_PLATFORM_H__
 #define __LS2K_AHCI_PLATFORM_H__
 
-#include <rtthread.h>
-#include <rthw.h>
-#include <rtconfig.h>
-#include <drivers/blk.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#include <loongarch.h>
-#include <ls2k1000la.h>
-#include <drv_pci.h>
+void ahci_mdelay(uint32_t ms);
 
-typedef signed   char             int8_t;
-typedef signed   short            int16_t;
-typedef signed   int              int32_t;
-typedef unsigned char             uint8_t;
-typedef unsigned short            uint16_t;
-typedef unsigned int              uint32_t;
-typedef signed   long             int64_t;
-typedef unsigned long             uint64_t;
+int ahci_printf(const char *fmt, ...);
 
+void *ahci_memset(void *s, int c, uint64_t count);
 
+void *ahci_memcpy(void *dest, const void *src, uint64_t n);
 
-#define mdelay rt_thread_mdelay
-#define udelay(...) rt_thread_mdelay(1)
+uint64_t ahci_malloc_align(uint64_t size, uint32_t align);
 
+// sync all dcache data
+void ahci_sync_dcache();
 
-#define plat_printf rt_kprintf
-#define plat_assert RT_ASSERT
-#define plat_malloc rt_malloc
-#define plat_memset rt_memset
-#define plat_memcpy rt_memcpy
+uint64_t ahci_phys_to_uncached(uint64_t va);
 
-
-// for debug
-#define AHCI_DEBUG 0
-#if(AHCI_DEBUG)
-#define debug plat_printf
-#else
-#define debug(...)
-#endif
-
-
-static void ahci_flush_cache(void *buf, uint64_t size)
-{
-    ;
-}
-
-static void invalidate_dcache_range(void *start, void *end)
-{
-    ;
-}
-
-
-static inline uint32_t readl(void *addr)
-{
-    return *((volatile uint32_t *)addr);
-}
-
-static inline void writel(uint32_t data, void *addr)
-{
-    *((volatile uint32_t *)addr) = data;
-}
-
-static int plat_ffs(int i)
-{
-    int bit;
-
-    if (0 == i)
-        return 0;
-
-    for (bit = 1; !(i & 1); ++bit)
-        i >>= 1;
-
-    return bit;
-}
+// convert virtual address to physical address
+// ahci sata can accept 64bit dma address
+uint64_t ahci_virt_to_phys(uint64_t va);
 
 #endif // __LS2K_AHCI_PLATFORM_H__

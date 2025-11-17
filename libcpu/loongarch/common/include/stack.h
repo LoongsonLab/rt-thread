@@ -71,6 +71,7 @@ struct pt_regs
     rt_ubase_t r_s6;         /* r29 - s6     - saved register 6           */
     rt_ubase_t r_s7;         /* r30 - s7     - saved register 7           */
     rt_ubase_t r_s8;         /* r31 - s8     - saved register 8           */
+
     rt_ubase_t r_crmd;       /* (r32)          csr crmd                   */
     rt_ubase_t r_prmd;       /* (r33)          csr prmd                   */
     rt_ubase_t r_euen;       /* (r34)          csr euen                   */

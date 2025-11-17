@@ -1,114 +1,42 @@
 #ifndef __LS2K_ETH_PLATFORM_H__
 #define __LS2K_ETH_PLATFORM_H__
 
-#include <rtthread.h>
-#include <rtdef.h>
-#include <rthw.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-// lwip
-#include <netif/ethernetif.h>
+// printf
+int eth_printf(const char *fmt, ...);
 
-#include <ls2k1000la.h>
-#include <drv_interrupt.h>
-#include <drv_pci.h>
+// memcpy
+void *plat_memcpy(void *dest, const void *src, uint64_t n);
 
-
-
-// for delay
-#define DEFAULT_LOOP_VARIABLE 1000
-#define mdelay      rt_thread_mdelay
-#define udelay(...) rt_thread_mdelay(1)
-
-
-#define plat_printf rt_kprintf
-#define plat_assert RT_ASSERT
-#define plat_memcpy rt_memcpy
-
-
-typedef signed   char             int8_t;
-typedef signed   short            int16_t;
-typedef signed   int              int32_t;
-typedef unsigned char             uint8_t;
-typedef unsigned short            uint16_t;
-typedef unsigned int              uint32_t;
-typedef signed   long             int64_t;
-typedef unsigned long             uint64_t;
-
-
-
-// flush cache
-static void flush_cache(void *buf, uint64_t size)
-{
-}
-
-// alloc memory
-static void *plat_malloc(uint32_t bytes)
-{
-    return rt_malloc(bytes);
-}
+// aligned malloc
+uint64_t eth_malloc_align(uint64_t size, uint32_t align);
 
 // free memory
-static void plat_free(void *buffer)
-{
-    rt_free(buffer);
-}
+void plat_free(void *buffer);
+
+// sync all dcache data
+void eth_sync_dcache();
 
 // convert virtual address to physical address
-static uint64_t gmac_dmamap(uint64_t va, uint32_t size)
-{
-    return CACHED_TO_PHYS(va);
-}
+uint32_t eth_virt_to_phys(uint64_t va);
 
-// allocate 16 bytes aligned memory
-// addr return physical address
-// buf return uncached virtual address
-static void *plat_malloc_dmaable(uint32_t size, uint64_t *addr)
-{
-    void *buf = rt_malloc_align(size, 16);
-    *addr = gmac_dmamap(buf, size);
-    buf = CACHED_TO_UNCACHED(buf);
-    return buf;
-}
+// convert physical address to virtual address
+uint64_t eth_phys_to_virt(uint32_t pa);
 
-// convert virtual address to physical address and flush cache
-static uint64_t plat_dma_map_single(void *hwdev, void *ptr, uint32_t size)
-{
-    uint64_t addr = ptr;
-    flush_cache(addr, size);
-    return gmac_dmamap(addr, size);
-}
+// copy p to buffer
+// return length
+uint32_t eth_handle_tx_buffer(uint64_t p, uint64_t buffer);
 
-static uint32_t eth_gmac_read_reg(uint64_t base, uint32_t offset)
-{
-    uint64_t addr;
-    uint32_t data;
+// allocate a mem region and copy from buffer length bytes
+// return the new mem region
+uint64_t eth_handle_rx_buffer(uint64_t buffer, uint32_t length);
 
-    addr = base + (uint32_t)offset;
-    data = *(volatile uint32_t *)addr;
-    return data;
-}
+void eth_rx_ready(struct net_device *gmacdev);
 
-static void eth_gmac_write_reg(uint64_t base, uint32_t offset, uint32_t data)
-{
-    uint64_t addr;
-    addr = base + (uint32_t)offset;
-    *(volatile uint32_t *)addr = data;
-}
+void eth_update_linkstate(struct net_device *gmacdev, uint32_t status);
 
-static void eth_gmac_set_bits(uint64_t base, uint32_t offset, uint32_t pos)
-{
-    uint32_t data;
-    data = eth_gmac_read_reg(base, offset);
-    data |= pos;
-    eth_gmac_write_reg(base, offset, data);
-}
-
-static void eth_gmac_clear_bits(uint64_t base, uint32_t offset, uint32_t pos)
-{
-    uint32_t data;
-    data = eth_gmac_read_reg(base, offset);
-    data &= (~pos);
-    eth_gmac_write_reg(base, offset, data);
-}
+void eth_isr_install();
 
 #endif // __LS2K_ETH_PLATFORM_H__

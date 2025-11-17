@@ -297,7 +297,71 @@
 
 #define LOONGARCH_CSR_TLBEHI		0x11	/* TLB EntryHi */
 
+#define LOONGARCH_CSR_TLBELO0		0x12	/* TLB EntryLo0 */
+#define  CSR_TLBLO0_RPLV_SHIFT		63
+#define  CSR_TLBLO0_RPLV		(_ULCAST_(0x1) << CSR_TLBLO0_RPLV_SHIFT)
+#define  CSR_TLBLO0_NX_SHIFT		62
+#define  CSR_TLBLO0_NX			(_ULCAST_(0x1) << CSR_TLBLO0_NX_SHIFT)
+#define  CSR_TLBLO0_NR_SHIFT		61
+#define  CSR_TLBLO0_NR			(_ULCAST_(0x1) << CSR_TLBLO0_NR_SHIFT)
+#define  CSR_TLBLO0_PFN_SHIFT		12
+#define  CSR_TLBLO0_PFN_WIDTH		36
+#define  CSR_TLBLO0_PFN			(_ULCAST_(0xfffffffff) << CSR_TLBLO0_PFN_SHIFT)
+#define  CSR_TLBLO0_GLOBAL_SHIFT	6
+#define  CSR_TLBLO0_GLOBAL		(_ULCAST_(0x1) << CSR_TLBLO0_GLOBAL_SHIFT)
+#define  CSR_TLBLO0_CCA_SHIFT		4
+#define  CSR_TLBLO0_CCA_WIDTH		2
+#define  CSR_TLBLO0_CCA			(_ULCAST_(0x3) << CSR_TLBLO0_CCA_SHIFT)
+#define  CSR_TLBLO0_PLV_SHIFT		2
+#define  CSR_TLBLO0_PLV_WIDTH		2
+#define  CSR_TLBLO0_PLV			(_ULCAST_(0x3) << CSR_TLBLO0_PLV_SHIFT)
+#define  CSR_TLBLO0_WE_SHIFT		1
+#define  CSR_TLBLO0_WE			(_ULCAST_(0x1) << CSR_TLBLO0_WE_SHIFT)
+#define  CSR_TLBLO0_V_SHIFT		0
+#define  CSR_TLBLO0_V			(_ULCAST_(0x1) << CSR_TLBLO0_V_SHIFT)
 
+#define LOONGARCH_CSR_TLBELO1		0x13	/* TLB EntryLo1 */
+#define  CSR_TLBLO1_RPLV_SHIFT		63
+#define  CSR_TLBLO1_RPLV		(_ULCAST_(0x1) << CSR_TLBLO1_RPLV_SHIFT)
+#define  CSR_TLBLO1_NX_SHIFT		62
+#define  CSR_TLBLO1_NX			(_ULCAST_(0x1) << CSR_TLBLO1_NX_SHIFT)
+#define  CSR_TLBLO1_NR_SHIFT		61
+#define  CSR_TLBLO1_NR			(_ULCAST_(0x1) << CSR_TLBLO1_NR_SHIFT)
+#define  CSR_TLBLO1_PFN_SHIFT		12
+#define  CSR_TLBLO1_PFN_WIDTH		36
+#define  CSR_TLBLO1_PFN			(_ULCAST_(0xfffffffff) << CSR_TLBLO1_PFN_SHIFT)
+#define  CSR_TLBLO1_GLOBAL_SHIFT	6
+#define  CSR_TLBLO1_GLOBAL		(_ULCAST_(0x1) << CSR_TLBLO1_GLOBAL_SHIFT)
+#define  CSR_TLBLO1_CCA_SHIFT		4
+#define  CSR_TLBLO1_CCA_WIDTH		2
+#define  CSR_TLBLO1_CCA			(_ULCAST_(0x3) << CSR_TLBLO1_CCA_SHIFT)
+#define  CSR_TLBLO1_PLV_SHIFT		2
+#define  CSR_TLBLO1_PLV_WIDTH		2
+#define  CSR_TLBLO1_PLV			(_ULCAST_(0x3) << CSR_TLBLO1_PLV_SHIFT)
+#define  CSR_TLBLO1_WE_SHIFT		1
+#define  CSR_TLBLO1_WE			(_ULCAST_(0x1) << CSR_TLBLO1_WE_SHIFT)
+#define  CSR_TLBLO1_V_SHIFT		0
+#define  CSR_TLBLO1_V			(_ULCAST_(0x1) << CSR_TLBLO1_V_SHIFT)
+
+#define LOONGARCH_CSR_GTLBC		0x15	/* Guest TLB control */
+#define  CSR_GTLBC_TGID_SHIFT		16
+#define  CSR_GTLBC_TGID_WIDTH		8
+#define  CSR_GTLBC_TGID_SHIFT_END	(CSR_GTLBC_TGID_SHIFT + CSR_GTLBC_TGID_WIDTH - 1)
+#define  CSR_GTLBC_TGID			(_ULCAST_(0xff) << CSR_GTLBC_TGID_SHIFT)
+#define  CSR_GTLBC_TOTI_SHIFT		13
+#define  CSR_GTLBC_TOTI			(_ULCAST_(0x1) << CSR_GTLBC_TOTI_SHIFT)
+#define  CSR_GTLBC_USETGID_SHIFT	12
+#define  CSR_GTLBC_USETGID		(_ULCAST_(0x1) << CSR_GTLBC_USETGID_SHIFT)
+#define  CSR_GTLBC_GMTLBSZ_SHIFT	0
+#define  CSR_GTLBC_GMTLBSZ_WIDTH	6
+#define  CSR_GTLBC_GMTLBSZ		(_ULCAST_(0x3f) << CSR_GTLBC_GMTLBSZ_SHIFT)
+
+#define LOONGARCH_CSR_TRGP		0x16	/* TLBR read guest info */
+#define  CSR_TRGP_RID_SHIFT		16
+#define  CSR_TRGP_RID_WIDTH		8
+#define  CSR_TRGP_RID			(_ULCAST_(0xff) << CSR_TRGP_RID_SHIFT)
+#define  CSR_TRGP_GTLB_SHIFT		0
+#define  CSR_TRGP_GTLB			(1 << CSR_TRGP_GTLB_SHIFT)
 
 #define LOONGARCH_CSR_ASID		0x18	/* ASID */
 #define  CSR_ASID_BIT_SHIFT		16	/* ASIDBits */
@@ -518,20 +582,37 @@
 
 #ifndef __ASSEMBLY__
 
-#define read_csr_asid()				csr_read32(LOONGARCH_CSR_ASID)
-#define write_csr_asid(val)			csr_write32(val, LOONGARCH_CSR_ASID)
-#define read_csr_ecfg()				csr_read32(LOONGARCH_CSR_ECFG)
-#define write_csr_ecfg(val)			csr_write32(val, LOONGARCH_CSR_ECFG)
-#define read_csr_estat()			csr_read32(LOONGARCH_CSR_ESTAT)
+#define read_csr_asid()			csr_read32(LOONGARCH_CSR_ASID)
+#define write_csr_asid(val)		csr_write32(val, LOONGARCH_CSR_ASID)
+#define read_csr_entryhi()		csr_read64(LOONGARCH_CSR_TLBEHI)
+#define write_csr_entryhi(val)		csr_write64(val, LOONGARCH_CSR_TLBEHI)
+#define read_csr_entrylo0()		csr_read64(LOONGARCH_CSR_TLBELO0)
+#define write_csr_entrylo0(val)		csr_write64(val, LOONGARCH_CSR_TLBELO0)
+#define read_csr_entrylo1()		csr_read64(LOONGARCH_CSR_TLBELO1)
+#define write_csr_entrylo1(val)		csr_write64(val, LOONGARCH_CSR_TLBELO1)
+#define read_csr_ecfg()			csr_read32(LOONGARCH_CSR_ECFG)
+#define write_csr_ecfg(val)		csr_write32(val, LOONGARCH_CSR_ECFG)
+#define read_csr_estat()		csr_read32(LOONGARCH_CSR_ESTAT)
 #define write_csr_estat(val)		csr_write32(val, LOONGARCH_CSR_ESTAT)
+#define read_csr_tlbidx()		csr_read32(LOONGARCH_CSR_TLBIDX)
+#define write_csr_tlbidx(val)		csr_write32(val, LOONGARCH_CSR_TLBIDX)
+#define read_csr_euen()			csr_read32(LOONGARCH_CSR_EUEN)
+#define write_csr_euen(val)		csr_write32(val, LOONGARCH_CSR_EUEN)
+#define read_csr_cpuid()		csr_read32(LOONGARCH_CSR_CPUID)
+#define read_csr_prcfg1()		csr_read64(LOONGARCH_CSR_PRCFG1)
+#define write_csr_prcfg1(val)		csr_write64(val, LOONGARCH_CSR_PRCFG1)
+#define read_csr_prcfg2()		csr_read64(LOONGARCH_CSR_PRCFG2)
+#define write_csr_prcfg2(val)		csr_write64(val, LOONGARCH_CSR_PRCFG2)
+#define read_csr_prcfg3()		csr_read64(LOONGARCH_CSR_PRCFG3)
+#define write_csr_prcfg3(val)		csr_write64(val, LOONGARCH_CSR_PRCFG3)
+#define read_csr_stlbpgsize()		csr_read32(LOONGARCH_CSR_STLBPGSIZE)
+#define write_csr_stlbpgsize(val)	csr_write32(val, LOONGARCH_CSR_STLBPGSIZE)
+#define read_csr_rvacfg()		csr_read32(LOONGARCH_CSR_RVACFG)
+#define write_csr_rvacfg(val)		csr_write32(val, LOONGARCH_CSR_RVACFG)
 #define write_csr_tintclear(val)	csr_write32(val, LOONGARCH_CSR_TINTCLR)
-
-/* IOCSR */
-#define iocsr_read32(reg) 			__iocsrrd_w(reg)
-#define iocsr_read64(reg) 			__iocsrrd_d(reg)
-#define iocsr_write32(val, reg) 	__iocsrwr_w(val, reg)
-#define iocsr_write64(val, reg) 	__iocsrwr_d(val, reg)
-
+#define read_csr_impctl1()		csr_read64(LOONGARCH_CSR_IMPCTL1)
+#define write_csr_impctl1(val)		csr_write64(val, LOONGARCH_CSR_IMPCTL1)
+#define write_csr_impctl2(val)		csr_write64(val, LOONGARCH_CSR_IMPCTL2)
 
 static inline unsigned long set_csr_ecfg(unsigned long set_val)
 {

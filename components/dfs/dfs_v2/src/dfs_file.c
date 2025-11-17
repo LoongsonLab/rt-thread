@@ -2176,7 +2176,8 @@ void cat(const char *filename)
     dfs_file_deinit(&file);
 }
 
-#define BUF_SZ  4096
+// #define BUF_SZ  4096
+#define BUF_SZ  65536
 static void copyfile(const char *src, const char *dst)
 {
     int ret;

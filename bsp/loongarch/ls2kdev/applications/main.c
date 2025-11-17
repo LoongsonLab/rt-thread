@@ -1,4 +1,3 @@
-#include "rtdef.h"
 #include <rtthread.h>
 #include <rthw.h>
 

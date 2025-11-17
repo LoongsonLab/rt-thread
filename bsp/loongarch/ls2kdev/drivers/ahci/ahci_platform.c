@@ -1,32 +1,106 @@
-#include <ahci_platform.h>
+#include <rtthread.h>
+#include <rthw.h>
+#include <rtconfig.h>
+#include <drivers/blk.h>
 
-#include <libahci.h>
-#include <blk_device.h>
+#include <loongarch.h>
+#include <ls2k1000la.h>
+#include <drv_pci.h>
+
+#include <ahci_platform.h>
+#include <drv_ahci.h>
+
+struct rt_ahci_device
+{
+    struct rt_device parent;
+    struct ahci_device ahci_dev;
+};
+
+void ahci_mdelay(uint32_t ms)
+{
+    rt_thread_mdelay(ms);
+}
+
+int ahci_printf(const char *fmt, ...)
+{
+    va_list args;
+    int length = 0;
+    static char rt_log_buf[RT_CONSOLEBUF_SIZE];
+
+    va_start(args, fmt);
+
+    length = rt_vsnprintf(rt_log_buf, sizeof(rt_log_buf) - 1, fmt, args);
+    if (length > RT_CONSOLEBUF_SIZE - 1)
+    {
+        length = RT_CONSOLEBUF_SIZE - 1;
+    }
+
+    rt_kputs(rt_log_buf);
+
+    va_end(args);
+
+    return length;
+}
+
+void *ahci_memset(void *s, int c, uint64_t count)
+{
+    return rt_memset(s, c, count);
+}
+
+void *ahci_memcpy(void *dest, const void *src, uint64_t n)
+{
+    return rt_memcpy(dest, src, n);
+}
+
+uint64_t ahci_malloc_align(uint64_t size, uint32_t align)
+{
+    return (uint64_t)rt_malloc_align(size, align);
+}
+
+// sync all dcache data
+void ahci_sync_dcache()
+{
+    __asm__ volatile("dbar 0" ::: "memory");
+}
+
+uint64_t ahci_virt_to_phys(uint64_t va)
+{
+    return CACHED_TO_PHYS(va);
+}
+
+uint64_t ahci_phys_to_uncached(uint64_t va)
+{
+    return PHYS_TO_UNCACHED(va);
+}
 
 // disk read
-rt_ssize_t dwc_ahsata_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_uint64_t size)
+rt_ssize_t rt_ahci_sata_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_uint64_t size)
 {
-    struct blk_device *blk = (struct blk_device *)dev;
-    return sata_read_common(blk->ahci_device, blk, pos, size, buffer);
+    struct rt_ahci_device *rt_ahci_dev = dev;
+    struct ahci_device *ahci_dev = &rt_ahci_dev->ahci_dev;
+    return (uint64_t)ahci_sata_read_common(ahci_dev, pos, size, buffer);
 }
 
 // disk write
-rt_ssize_t dwc_ahsata_write(rt_device_t dev, rt_off_t pos, const void *buffer, rt_uint64_t size)
+rt_ssize_t rt_ahci_sata_write(rt_device_t dev, rt_off_t pos, void *buffer, rt_uint64_t size)
 {
-    struct blk_device *blk = (struct blk_device *)dev;
-    return sata_write_common(blk->ahci_device, blk, pos, size, buffer);
+    struct rt_ahci_device *rt_ahci_dev = dev;
+    struct ahci_device *ahci_dev = &rt_ahci_dev->ahci_dev;
+    return (uint64_t)ahci_sata_write_common(ahci_dev, pos, size, buffer);
 }
 
-rt_err_t dwc_ahsata_control(rt_device_t dev, int cmd, void *args)
+rt_err_t rt_ahci_sata_control(rt_device_t dev, int cmd, void *args)
 {
-    struct blk_device *blk = (struct blk_device *)dev;
+    struct rt_ahci_device *rt_ahci_dev = dev;
+    struct ahci_device *ahci_dev = &rt_ahci_dev->ahci_dev;
+    struct ahci_blk_dev *blk = &ahci_dev->blk_dev;
 
     switch (cmd)
     {
     case RT_DEVICE_CTRL_BLK_GETGEOME:
         if (args != NULL)
         {
-            struct rt_device_blk_geometry *info = (struct rt_device_blk_geometry *)args;
+            struct rt_device_blk_geometry *info = args;
             info->sector_count = blk->lba;
             info->bytes_per_sector = blk->blksz;
             info->block_size = blk->blksz;
@@ -34,7 +108,7 @@ rt_err_t dwc_ahsata_control(rt_device_t dev, int cmd, void *args)
         break;
 
     default:
-        rt_kprintf("[dwc_ahsata_control] Unimplemented cmd\n");
+        rt_kprintf("[rt_ahci_sata_control] Unimplemented cmd\n");
         return -RT_ERROR;
     }
 
@@ -45,101 +119,41 @@ static struct rt_device_ops ahsata_scan_ops = {
     .init = RT_NULL,
     .open = RT_NULL,
     .close = RT_NULL,
-    .control = dwc_ahsata_control,
-    .read = dwc_ahsata_read,
-    .write = dwc_ahsata_write
-};
-
-// scan ahci and register device for block device
-int dwc_ahsata_scan(struct rt_device *dev)
-{
-    struct ahci_uc_priv *uc_priv = (struct ahci_uc_priv *)dev;
-    struct blk_device *blk;
-    rt_err_t ret;
-
-    blk = (struct blk_device *)rt_device_create(RT_Device_Class_Block, sizeof(struct blk_device) - sizeof(struct rt_device));
-    blk->parent.ops = &ahsata_scan_ops;
-    blk->ahci_device = uc_priv;
-    blk->blksz = 512;
-    blk->log2blksz = 9;
-    blk->lba = 0;
-    ret = rt_device_register((rt_device_t)blk, "ls_ahci_blk", RT_DEVICE_FLAG_RDWR);
-
-    if (ret != RT_EOK)
-    {
-        debug("Can't create device\n");
-        return ret;
-    }
-
-    ret = dwc_ahsata_scan_common(uc_priv, blk);
-
-    if (ret)
-    {
-        debug("%s: Failed to scan bus\n", __func__);
-        return ret;
-    }
-
-    return 0;
-}
-
-int dwc_ahsata_probe(struct rt_device *dev)
-{
-    struct ahci_uc_priv *uc_priv = (struct ahci_uc_priv *)dev;
-    int ret;
-
-    uc_priv->host_flags = ATA_FLAG_SATA | ATA_FLAG_NO_LEGACY |
-                         ATA_FLAG_MMIO | ATA_FLAG_PIO_DMA | ATA_FLAG_NO_ATAPI;
-
-    // init ahci host
-    ret = ahci_host_init(uc_priv);
-    if (ret)
-        return ret;
-
-    ahci_print_info(uc_priv);
-
-    return dwc_ahci_start_ports(uc_priv);
-}
-
-static struct rt_device_ops ahci_host_ops =
-{
-    .init = RT_NULL,
-    .open = RT_NULL,
-    .close = RT_NULL,
-    .read = RT_NULL,
-    .write = RT_NULL,
-    .control = RT_NULL
+    .control = rt_ahci_sata_control,
+    .read = rt_ahci_sata_read,
+    .write = rt_ahci_sata_write
 };
 
 // 初始化时调用
 // 初始化ahci硬盘控制器，并注册相关的设备
-// ls_ahci，ahci控制器
 // ls_ahci_blk，硬盘块设备本体
 int rt_hw_ahci_host_init()
 {
     struct pci_header *p = (struct pci_header *)(LS_PCIE_SATA_ADDR);
-    rt_uint64_t ahci_base = PHYS_TO_UNCACHED((p->BaseAddressRegister[0]) & 0xfffffff0);
+    rt_uint64_t achi_base_phys = (p->BaseAddressRegister[0]) & 0xfffffff0;
+    rt_uint64_t ahci_base = PHYS_TO_UNCACHED(achi_base_phys);
 
-    struct ahci_uc_priv *ahci_device;
-    ahci_device = (struct ahci_uc_priv *)rt_device_create(RT_Device_Class_Miscellaneous, sizeof(struct ahci_uc_priv) - sizeof(struct rt_device));
+    rt_err_t ret;
+    struct rt_ahci_device *rt_ahci_dev;
+    struct ahci_device *ahci_dev;
 
-    ahci_device->mmio_base = ahci_base;
-    ahci_device->parent.ops = &ahci_host_ops;
+    // create device
+    rt_ahci_dev = rt_device_create(RT_Device_Class_Block,
+            sizeof(struct rt_ahci_device) - sizeof(struct rt_device));
+    rt_ahci_dev->parent.ops = &ahsata_scan_ops;
 
-    if (rt_device_register((rt_device_t)ahci_device, "ls_ahci", 0) != RT_EOK)
+    ahci_dev = &rt_ahci_dev->ahci_dev;
+
+    if (ahci_init(ahci_dev))
     {
-        rt_kprintf("ahci device register failed\n");
+        rt_kprintf("ahci failed to init\n");
         return -RT_ERROR;
     }
 
-    if (dwc_ahsata_probe((rt_device_t)ahci_device) != 0)
+    ret = rt_device_register(rt_ahci_dev, "ls_ahci_blk", RT_DEVICE_FLAG_RDWR);
+    if (ret)
     {
-        rt_kprintf("ahci probe failed\n");
-        return -RT_ERROR;
-    }
-
-    if (dwc_ahsata_scan((rt_device_t)ahci_device) != 0)
-    {
-        rt_kprintf("ahci host sata device scan failed\n");
+        rt_kprintf("cannot create device ls_ahci_blk\n");
         return -RT_ERROR;
     }
 

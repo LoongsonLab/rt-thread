@@ -161,6 +161,11 @@ static int _uart_getc(struct rt_serial_device *serial)
     return -1;
 }
 
+static int _dma_transmit(struct rt_serial_device *serial, rt_uint8_t *buf, rt_size_t size, int direction)
+{
+    return -1;
+}
+
 // uart irq handler
 static void uart_irq_handler(int vector, void *param)
 {

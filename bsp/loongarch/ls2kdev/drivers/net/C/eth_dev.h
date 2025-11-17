@@ -1,103 +1,127 @@
 #ifndef __LS2K_ETH_DEV_H__
 #define __LS2K_ETH_DEV_H__
 
-#include <eth_platform.h>
+#include <stdint.h>
+#include <stdbool.h>
 
-// gmac can support up to 32 phys
-#define GMAC_PHY_BASE 0
-#define DEFAULT_PHY_BASE 0
+// mac can support up to 32 phys
+#define GMAC_PHY_BASE        0
+#define DEFAULT_PHY_BASE     0
 
-// gmac macbase and dmabase address
-#define MACBASE 0x0000
-#define DMABASE 0x1000
+// macbase and dmabase address
+#define MACBASE     0x0000
+#define DMABASE     0x1000
 
-#define TRANSMIT_DESC_SIZE      36           // Tx Descriptors needed in the Descriptor pool/queue
-#define RECEIVE_DESC_SIZE       36           // Rx Descriptors needed in the Descriptor pool/queue
+#define TX_DESC_NUM     128           // Tx Descriptors needed in the Descriptor queue
+#define RX_DESC_NUM     128           // Rx Descriptors needed in the Descriptor queue
 
-#define ETHERNET_HEADER         14           // 6 byte Dest addr, 6 byte Src addr, 2 byte length/type
-#define ETHERNET_CRC            4            // Ethernet CRC
-#define ETHERNET_EXTRA          2            // ETHERNET EXTRA
-#define ETHERNET_PACKET_COPY    250          // Maximum length when received data is copied on to a new skb
-#define ETHERNET_PACKET_EXTRA   18           // Preallocated length for the rx packets is MTU + ETHERNET_PACKET_EXTRA
-#define VLAN_TAG                4            // optional 802.1q VLAN Tag
-#define MIN_ETHERNET_PAYLOAD    46           // Minimum Ethernet payload size
-#define MAX_ETHERNET_PAYLOAD    1500         // Maximum Ethernet payload size
-#define JUMBO_FRAME_PAYLOAD     9000         // Jumbo frame payload size
+// 802.3 ethernet frame structure
+// the default ethernet frame is 1,518/1,522 bytes
+// 9,018/9,022 bytes if jumbo frame enable is set
+#define ETHERNET_HEADER          14           // 6 byte Dest addr, 6 byte Src addr, 2 byte ethertype or length
+#define ETHERNET_CRC             4            // Ethernet CRC
+#define VLAN_TAG                 4            // optional 802.1q VLAN Tag
+#define VLAN_TAG_QINQ            4            // optional 802.1ad VLAN Tag (QinQ)
+#define MIN_ETHERNET_PAYLOAD     46           // Minimum Ethernet payload size (42 when 802.1q VLAN Tag present)
+#define MAX_ETHERNET_PAYLOAD     1500         // Maximum Ethernet payload size
+#define JUMBO_FRAME_PAYLOAD      9000         // Jumbo frame payload size
 
-#define TX_BUF_SIZE             ETHERNET_HEADER + ETHERNET_CRC + MAX_ETHERNET_PAYLOAD + VLAN_TAG + 1000
-#define RX_BUF_SIZE             ETHERNET_HEADER + ETHERNET_CRC + MAX_ETHERNET_PAYLOAD + VLAN_TAG + 1000
+// RX Buffer size must be multiple of 4/8/16 bytes
+#define BUF_SIZE_16KiB     16368
+#define BUF_SIZE_8KiB      8188
+#define BUF_SIZE_4KiB      4096
+#define BUF_SIZE_2KiB      2048
+
+// #define TX_BUF_SIZE     ETHERNET_HEADER + VLAN_TAG + MAX_ETHERNET_PAYLOAD + ETHERNET_CRC
+// #define RX_BUF_SIZE     ETHERNET_HEADER + VLAN_TAG + MAX_ETHERNET_PAYLOAD + ETHERNET_CRC
+
+// for alignment
+#define TX_BUF_SIZE     BUF_SIZE_2KiB
+#define RX_BUF_SIZE     BUF_SIZE_2KiB
+
+
 
 // !!! NEVER TOUCH IT !!!
+// for enhanced desc (4 dwords)
 typedef struct DmaDescStruct
 {
     uint32_t status;
-    uint32_t length;  // buffer length
-    uint32_t buffer1; // Network Buffer 1 pointer (dmaable)
-    uint32_t buffer2; // Network Buffer 2 pointer or next descriptor pointer (dmaable) in chain structure
-    uint64_t data1;   // This holds virtual address of buffer1, not used by DMA
-    uint64_t data2;   // This holds virtual address of buffer2, not used by DMA
+    uint32_t length;  // buffer (1/2) length
+    uint32_t buffer1; // buffer 1 pointer (dmaable)
+    uint32_t buffer2; // buffer 2 pointer in ring or next descriptor pointer in chain (dmaable)
 } DmaDesc;
 
-typedef struct net_device
+// for enhanced desc (8 dwords)
+// uint32_t status;
+// uint32_t length;
+// uint32_t buffer1;
+// uint32_t buffer2;
+// uint32_t extstatus;
+// uint32_t reserved;
+// uint32_t timestamplow;
+// uint32_t timestamphigh;
+
+struct DmaFeature {
+    uint32_t mbps_10_100 : 1;        //  0
+    uint32_t mbps_1000 : 1;          //  1
+    uint32_t half_duplex : 1;        //  2
+    uint32_t hash_filter : 1;         //  4
+    uint32_t multi_addr : 1;         //  5
+    uint32_t pcs : 1;                //  6
+    uint32_t sma_mdio : 1;           //  8
+    uint32_t pmt_remote_wake_up : 1; //  9
+    uint32_t pmt_magic_frame : 1;    // 10
+    uint32_t rmon : 1;               // 11
+    uint32_t time_stamp : 1;         // 12
+    uint32_t atime_stamp : 1;        // 13
+    uint32_t eee : 1;                // 14
+    uint32_t av : 1;                 // 15
+    uint32_t tx_coe : 1;             // 16
+    uint32_t rx_coe : 1;             // 17/18
+    uint32_t rx_coe_type1 : 1;       // 17
+    uint32_t rx_coe_type2 : 1;       // 18
+    uint32_t rxfifo_over_2048 : 1;    // 19
+    uint32_t number_rx_channel : 2;  // 20-21
+    uint32_t number_tx_channel : 2;  // 22-23
+    uint32_t enh_desc : 1;           // 24
+};
+
+struct net_device
 {
-    uint64_t MacBase;      // base address of MAC registers
-    uint64_t DmaBase;      // base address of DMA registers
-    uint64_t PhyBase;      // PHY device address on MII interface
-    uint32_t Version;      // Gmac Revision version
+    void *parent;                 // point to OS defined net struct
 
-    uint64_t TxDescDma;    // Dma-able address of first tx descriptor
-    uint64_t RxDescDma;    // Dma-able address of first rx descriptor
-    DmaDesc *TxDesc;       // start address of TX descriptors
-    DmaDesc *RxDesc;       // start address of RX descriptors
+    uint64_t iobase;              // base address of MAC
+    uint8_t MacAddr[6];           // mac address
 
-    uint32_t BusyTxDesc;   // Number of Tx Descriptors owned by DMA at any given time*/
-    uint32_t BusyRxDesc;   // Number of Rx Descriptors owned by DMA at any given time*/
+    uint64_t MacBase;             // base address of GMAC
+    uint64_t DmaBase;             // base address of DMA
+    uint64_t PhyBase;             // phy device addr, 0 by default
+    uint32_t Version;             // MAC version
+    // struct DmaFeature DmaCap;     // DMA hardware feature
 
-    uint32_t RxDescCount;  // number of rx descriptors in the tx descriptor queue/pool */
-    uint32_t TxDescCount;  // number of tx descriptors in the rx descriptor queue/pool */
+    uint32_t TxBusy;              // index of the first tx desc owned by DMA
+    uint32_t TxNext;              // index of the first tx desc available
+    uint32_t RxBusy;              // index of the first rx desc owned by DMA
 
-    uint32_t TxBusy;       // index of the tx descriptor owned by DMA
-    uint32_t TxNext;       // index of the tx descriptor next available
-    uint32_t RxBusy;       // index of the rx descriptor owned by DMA
-    uint32_t RxNext;       // index of the rx descriptor next available with driver
+    DmaDesc *TxDesc[TX_DESC_NUM]; // tx desc ptr queue
+    DmaDesc *RxDesc[RX_DESC_NUM]; // rx desc ptr queue
+    void *TxBuffer[TX_DESC_NUM];  // tx buffer ptr queue
+    void *RxBuffer[RX_DESC_NUM];  // rx buffer ptr queue
 
-    DmaDesc *TxBusyDesc;   // Tx Descriptor address corresponding to the index TxBusy
-    DmaDesc *TxNextDesc;   // Tx Descriptor address corresponding to the index TxNext
-    DmaDesc *RxBusyDesc;   // Rx Descriptor address corresponding to the index TxBusy
-    DmaDesc *RxNextDesc;   // Rx Descriptor address corresponding to the index RxNext
+    // net status
+    uint64_t rx_packets;          // total packets received
+    uint64_t tx_packets;          // total packets transmitted
+    uint64_t rx_bytes;            // total bytes received
+    uint64_t tx_bytes;            // total bytes transmitted
+    uint64_t rx_errors;           // bad packets received
+    uint64_t tx_errors;           // packet transmit problems
 
-    uint32_t LinkState;    // Link status as reported by the Marvel Phy
-    uint32_t DuplexMode;   // Duplex mode of the Phy
-    uint32_t Speed;        // Speed of the Phy
-} net_device;
-
-// ethernet status
-typedef struct net_stats
-{
-    uint64_t rx_packets;      // total packets received
-    uint64_t tx_packets;      // total packets transmitted
-    uint64_t rx_bytes;        // total bytes received
-    uint64_t tx_bytes;        // total bytes transmitted
-    uint64_t rx_errors;       // bad packets received
-    uint64_t tx_errors;       // packet transmit problems
-} net_stats;
-
-// mii interface
-typedef struct mii_if_info {
-    uint32_t phy_id;
-    uint32_t advertising;
-
-    uint32_t full_duplex : 1;   // full duplex
-    uint32_t support_gmii : 1;  // GMII registers supported
-
-    struct eth_adapter *dev;
-} mii_if_info;
-
-typedef struct eth_adapter {
-    struct net_device *dev; // the real device
-    struct net_stats stats; // ethernet status
-    struct mii_if_info mii; // mii interface
-} eth_adapter;
+    // mii interface
+    uint32_t advertising;         //
+    uint32_t LinkStatus;          // link status
+    uint32_t DuplexMode;          // duplex mode
+    uint32_t Speed;               // link speed
+};
 
 
 
@@ -224,7 +248,7 @@ enum GmacRegisters
     GmacAddr14Low          = 0x00B4,    /* Mac address14 low Register */
     GmacAddr15High         = 0x00B8,    /* Mac address15 high Register */
     GmacAddr15Low          = 0x00BC,    /* Mac address15 low Register */
-    GmacStatus             = 0x00d8,    /* MAC status */
+    GmacRgsmiiStatus       = 0x00D8,    /* Mac SGMII/RGMII/SMII status */
 
     // Time Stamp Register Map
     GmacTSControl          = 0x0700,  /* Controls the Timestamp update logic */
@@ -250,20 +274,24 @@ enum GmacRegisters
 /* GmacConfig = 0x0000, Mac config Register Layout */
 enum GmacConfigReg
 {
+    GmacTxConfig              = 0x01000000,
+    GmacTxConfigDisable       = 0x00800000,     /* (TC) Disable Transmit Configuration */
+    GmacTxConfigEnable        = 0x00000000,     /* Enable Transmit Configuratio */
+
     GmacWatchdog             = 0x00800000,
-    GmacWatchdogDisable      = 0x00800000,     /* (WD)Disable watchdog timer on Rx */
+    GmacWatchdogDisable      = 0x00800000,     /* (WD) Disable watchdog timer on Rx */
     GmacWatchdogEnable       = 0x00000000,     /* Enable watchdog timer */
 
     GmacJabber               = 0x00400000,
-    GmacJabberDisable        = 0x00400000,     /* (JD)Disable jabber timer on Tx */
+    GmacJabberDisable        = 0x00400000,     /* (JD) Disable jabber timer on Tx */
     GmacJabberEnable         = 0x00000000,     /* Enable jabber timer */
 
     GmacFrameBurst           = 0x00200000,
-    GmacFrameBurstEnable     = 0x00200000,     /* (BE)Enable frame bursting during Tx */
+    GmacFrameBurstEnable     = 0x00200000,     /* (BE) Enable frame bursting during Tx */
     GmacFrameBurstDisable    = 0x00000000,     /* Disable frame bursting */
 
     GmacJumboFrame           = 0x00100000,
-    GmacJumboFrameEnable     = 0x00100000,     /* (JE)Enable jumbo frame for Tx */
+    GmacJumboFrameEnable     = 0x00100000,     /* (JE) Enable jumbo frame for Tx */
     GmacJumboFrameDisable    = 0x00000000,     /* Disable jumbo frame */
 
     GmacInterFrameGap7       = 0x000E0000,     /* (IFG) Config7 - 40 bit times */
@@ -277,31 +305,31 @@ enum GmacConfigReg
 
     GmacDisableCrs           = 0x00010000,
     GmacMiiGmii              = 0x00008000,
-    GmacSelectMii            = 0x00008000,     /* (PS)Port Select-MII mode */
+    GmacSelectMii            = 0x00008000,     /* (PS) Port Select-MII mode */
     GmacSelectGmii           = 0x00000000,     /* GMII mode */
 
-    GmacFESpeed100           = 0x00004000,     /* (FES)Fast Ethernet speed 100Mbps */
+    GmacFESpeed100           = 0x00004000,     /* (FES) Fast Ethernet speed 100Mbps */
     GmacFESpeed10            = 0x00000000,     /* 10Mbps */
 
     GmacRxOwn                = 0x00002000,
-    GmacDisableRxOwn         = 0x00002000,     /* (DO)Disable receive own packets */
+    GmacDisableRxOwn         = 0x00002000,     /* (DO) Disable receive own packets */
     GmacEnableRxOwn          = 0x00000000,     /* Enable receive own packets */
 
     GmacLoopback             = 0x00001000,
-    GmacLoopbackOn           = 0x00001000,     /* (LM)Loopback mode for GMII/MII */
+    GmacLoopbackOn           = 0x00001000,     /* (LM) Loopback mode for GMII/MII */
     GmacLoopbackOff          = 0x00000000,     /* Normal mode */
 
     GmacDuplex               = 0x00000800,
-    GmacFullDuplex           = 0x00000800,     /* (DM)Full duplex mode */
+    GmacFullDuplex           = 0x00000800,     /* (DM) Full duplex mode */
     GmacHalfDuplex           = 0x00000000,     /* Half duplex mode */
 
     GmacRxIpcOffload          = 0x00000400,     /* IPC checksum offload */
 
     GmacRetry                = 0x00000200,
-    GmacRetryDisable         = 0x00000200,     /* (DR)Disable Retry */
+    GmacRetryDisable         = 0x00000200,     /* (DR) Disable Retry */
     GmacRetryEnable          = 0x00000000,     /* Enable retransmission as per BL */
 
-    GmacLinkUp               = 0x00000100,     /* (LUD)Link UP */
+    GmacLinkUp               = 0x00000100,     /* (LUD) Link UP */
     GmacLinkDown             = 0x00000100,     /* Link Down */
 
     GmacPadCrcStrip          = 0x00000080,
@@ -309,21 +337,21 @@ enum GmacConfigReg
     GmacPadCrcStripDisable   = 0x00000000,     /* Automatic Pad/Crc stripping disable */
 
     GmacBackoffLimit         = 0x00000060,
-    GmacBackoffLimit3        = 0x00000060,     /* (BL)Back-off limit in HD mode */
+    GmacBackoffLimit3        = 0x00000060,     /* (BL) Back-off limit in HD mode */
     GmacBackoffLimit2        = 0x00000040,
     GmacBackoffLimit1        = 0x00000020,
     GmacBackoffLimit0        = 0x00000000,
 
     GmacDeferralCheck        = 0x00000010,
-    GmacDeferralCheckEnable  = 0x00000010,     /* (DC)Deferral check enable in HD mode */
+    GmacDeferralCheckEnable  = 0x00000010,     /* (DC) Deferral check enable in HD mode */
     GmacDeferralCheckDisable = 0x00000000,     /* Deferral check disable */
 
     GmacTx                   = 0x00000008,
-    GmacTxEnable             = 0x00000008,     /* (TE)Transmitter enable */
+    GmacTxEnable             = 0x00000008,     /* (TE) Transmitter enable */
     GmacTxDisable            = 0x00000000,     /* Transmitter disable */
 
     GmacRx                   = 0x00000004,
-    GmacRxEnable             = 0x00000004,     /* (RE)Receiver enable */
+    GmacRxEnable             = 0x00000004,     /* (RE) Receiver enable */
     GmacRxDisable            = 0x00000000,     /* Receiver disable */
 };
 
@@ -407,33 +435,33 @@ enum GmacGmiiDataReg
 /* GmacFlowControl = 0x0018, Flow control Register Layout */
 enum GmacFlowControlReg
 {
-    GmacPauseTimeMask        = 0xFFFF0000,     /* (PT) PAUSE TIME field in the control frame */
-    GmacPauseTimeShift       = 16,
+    GmacPauseTimeMask           = 0xFFFF0000,     /* (PT) PAUSE TIME field in the control frame */
+    GmacPauseTimeShift          = 16,
 
-    GmacPauseLowThresh       = 0x00000030,
-    GmacPauseLowThresh3      = 0x00000030,     /* (PLT)thresh for pause tmr 256 slot time */
-    GmacPauseLowThresh2      = 0x00000020,     /*                           144 slot time */
-    GmacPauseLowThresh1      = 0x00000010,     /*                            28 slot time */
-    GmacPauseLowThresh0      = 0x00000000,     /*                             4 slot time */
+    GmacPauseLowThresh          = 0x00000030,
+    GmacPauseLowThresh3         = 0x00000030,     /* (PLT)thresh for pause tmr 256 slot time */
+    GmacPauseLowThresh2         = 0x00000020,     /*                           144 slot time */
+    GmacPauseLowThresh1         = 0x00000010,     /*                            28 slot time */
+    GmacPauseLowThresh0         = 0x00000000,     /*                             4 slot time */
 
-    GmacUnicastPauseFrame    = 0x00000008,
-    GmacUnicastPauseFrameOn  = 0x00000008,     /* (UP)Detect pause frame with unicast addr */
-    GmacUnicastPauseFrameOff = 0x00000000,     /* Detect only pause frame with multicast addr */
+    GmacUnicastPauseFrame       = 0x00000008,
+    GmacUnicastPauseFrameOn     = 0x00000008,     /* (UP)Detect pause frame with unicast addr */
+    GmacUnicastPauseFrameOff    = 0x00000000,     /* Detect only pause frame with multicast addr */
 
-    GmacRxFlowControl       = 0x00000004,
-    GmacRxFlowControlEnable  = 0x00000004,     /* (RFE)Enable Rx flow control */
-    GmacRxFlowControlDisable = 0x00000000,     /* Disable Rx flow control */
+    GmacRxFlowControl           = 0x00000004,
+    GmacRxFlowControlEnable     = 0x00000004,     /* (RFE)Enable Rx flow control */
+    GmacRxFlowControlDisable    = 0x00000000,     /* Disable Rx flow control */
 
-    GmacTxFlowControl          = 0x00000002,
-    GmacTxFlowControlEnable  = 0x00000002,     /* (TFE)Enable Tx flow control */
-    GmacTxFlowControlDisable = 0x00000000,     /* Disable flow control */
+    GmacTxFlowControl           = 0x00000002,
+    GmacTxFlowControlEnable     = 0x00000002,     /* (TFE)Enable Tx flow control */
+    GmacTxFlowControlDisable    = 0x00000000,     /* Disable flow control */
 
-    GmacFlowControlBackPressure= 0x00000001,
-    GmacSendPauseFrame       = 0x00000001,     /* (FCB/PBA)send pause frm/Apply back pressure */
+    GmacFlowControlBackPressure = 0x00000001,
+    GmacSendPauseFrame          = 0x00000001,     /* (FCB/PBA)send pause frm/Apply back pressure */
 };
 
-/*  GmacInterruptStatus = 0x0038, Mac Interrupt ststus register */
-enum GmacInterruptStatusBitDefinition
+/* GmacInterruptStatus = 0x0038, Mac Interrupt ststus register */
+enum GmacInterruptStatus
 {
     GmacTSIntSts             = 0x00000200,      /* set if int generated due to TS (Read Time Stamp Status Register to know details) */
     GmacMmcRxChksumOffload    = 0x00000080,      /* set if int generated in MMC RX CHECKSUM OFFLOAD int register */
@@ -446,14 +474,31 @@ enum GmacInterruptStatusBitDefinition
     GmacRgmiiIntSts          = 0x00000001,      /* set if any change in lnk status of RGMII interface */
 };
 
-/*  GmacInterruptMask = 0x003C, Mac Interrupt Mask register */
-enum GmacInterruptMaskBitDefinition
+/* GmacInterruptMask = 0x003C, Mac Interrupt Mask register */
+enum GmacInterruptMask
 {
-    GmacTSIntMask              = 0x00000200,    /* when set disables the time stamp interrupt generation */
-    GmacPmtIntMask             = 0x00000008,    /* when set Disables the assertion of PMT interrupt */
-    GmacPcsAnIntMask           = 0x00000004,    /* When set disables the assertion of PCS AN complete interrupt */
-    GmacPcsLnkStsIntMask       = 0x00000002,    /* when set disables the assertion of PCS lnk status change interrupt */
-    GmacRgmiiIntMask           = 0x00000001,    /* when set disables the assertion of RGMII int */
+    GmacTSIntMask            = 0x00000200,    /* when set disables the time stamp interrupt generation */
+    GmacPmtIntMask           = 0x00000008,    /* when set disables the assertion of PMT interrupt */
+    GmacPcsAnIntMask         = 0x00000004,    /* when set disables the assertion of PCS AN complete interrupt */
+    GmacPcsLnkStsIntMask     = 0x00000002,    /* when set disables the assertion of PCS lnk status change interrupt */
+    GmacRgmiiIntMask         = 0x00000001,    /* when set disables the assertion of RGMII int */
+};
+
+/* GmacRgsmiiStatus = 0x00D8, Mac SGMII/RGMII/SMII status */
+enum GmacRgsmiiStatus
+{
+    MacFalseCarrier          = 0x00000020,    /* whether SMII phy detected false carrier (only for SMII) */
+    MacJabberTimeout         = 0x00000010,    /* whether jabber timeout error in received frame (only for SMII) */
+
+    MacLinkStatus            = 0x00000008,    /* whether the link is up (1'b1) or down (1'b0) */
+    MacLinkStatusOff         = 0x00000003,    /* link status offset */
+
+    MacLinkSpeed             = 0x00000006,    /* the current speed of the link */
+    MacLinkSpeed_125         = 0x00000004,    /* 10 - 125 MHz */
+    MacLinkSpeed_25          = 0x00000002,    /* 01 -  25 MHz */
+    MacLinkSpeed_2_5         = 0x00000000,    /* 00 - 2.5 MHz */
+
+    MacLinkMode              = 0x00000001,    /* the current mode of operation of the link */
 };
 
 enum DmaRegisters
@@ -467,29 +512,32 @@ enum DmaRegisters
     DmaControl        = 0x0018,    /* CSR6 - Dma Operation Mode Register           */
     DmaInterrupt      = 0x001C,    /* CSR7 - Interrupt enable                      */
     DmaMissedFr       = 0x0020,    /* CSR8 - Missed Frame & Buffer overflow Counter */
-    DmaTxCurrDesc     = 0x0048,    /*      - Current host Tx Desc Register         */
-    DmaRxCurrDesc     = 0x004C,    /*      - Current host Rx Desc Register         */
+    DmaTxCurrDesc     = 0x0048,    /* CSR18 - Current host Tx Desc Register        */
+    DmaRxCurrDesc     = 0x004C,    /* CSR19 - Current host Rx Desc Register        */
     DmaTxCurrAddr     = 0x0050,    /* CSR20 - Current host transmit buffer address */
     DmaRxCurrAddr     = 0x0054,    /* CSR21 - Current host receive buffer address  */
+    DmaHWFeature      = 0x0058,    /* CSR22 - HW Feature Register                  */
 };
 
 /* DmaBusMode = 0x0000, CSR0 - Bus Mode */
 enum DmaBusModeReg
 {
-    DmaFixedBurstEnable     = 0x00010000,   /* (FB)Fixed Burst SINGLE, INCR4, INCR8 or INCR16 */
-    DmaFixedBurstDisable    = 0x00000000,   /*                 SINGLE, INCR  */
+    DmaMixedBurstEnable     = 0x04000000,   /* Mixed Burst */
 
-    DmaTxPriorityRatio11    = 0x00000000,   /* (PR)TX:RX DMA priority ratio 1:1 */
-    DmaTxPriorityRatio21    = 0x00004000,   /* (PR)TX:RX DMA priority ratio 2:1 */
-    DmaTxPriorityRatio31    = 0x00008000,   /* (PR)TX:RX DMA priority ratio 3:1 */
-    DmaTxPriorityRatio41    = 0x0000C000,   /* (PR)TX:RX DMA priority ratio 4:1 */
+    DmaFixedBurstEnable     = 0x00010000,   /* Fixed Burst SINGLE, INCR4, INCR8 or INCR16 */
+    DmaFixedBurstDisable    = 0x00000000,   /*             SINGLE, INCR  */
+
+    DmaTxPriorityRatio11    = 0x00000000,   /* (PR) TX:RX DMA priority ratio 1:1 */
+    DmaTxPriorityRatio21    = 0x00004000,   /* (PR) TX:RX DMA priority ratio 2:1 */
+    DmaTxPriorityRatio31    = 0x00008000,   /* (PR) TX:RX DMA priority ratio 3:1 */
+    DmaTxPriorityRatio41    = 0x0000C000,   /* (PR) TX:RX DMA priority ratio 4:1 */
 
     DmaBurstLengthx8        = 0x01000000,   /* When set mutiplies the PBL by 8 */
 
     DmaBurstLength256       = 0x01002000,   /* (DmaBurstLengthx8 | DmaBurstLength32) = 256 */
     DmaBurstLength128       = 0x01001000,   /* (DmaBurstLengthx8 | DmaBurstLength16) = 128 */
     DmaBurstLength64        = 0x01000800,   /* (DmaBurstLengthx8 | DmaBurstLength8) = 64 */
-    DmaBurstLength32        = 0x00002000,   /* (PBL) programmable Dma burst length = 32 */
+    DmaBurstLength32        = 0x00002000,   /* (PBL) Programmable Dma burst length = 32 */
     DmaBurstLength16        = 0x00001000,   /* Dma burst length = 16 */
     DmaBurstLength8         = 0x00000800,   /* Dma burst length = 8 */
     DmaBurstLength4         = 0x00000400,   /* Dma burst length = 4 */
@@ -497,10 +545,10 @@ enum DmaBusModeReg
     DmaBurstLength1         = 0x00000100,   /* Dma burst length = 1 */
     DmaBurstLength0         = 0x00000000,   /* Dma burst length = 0 */
 
-    DmaDescriptor8Words     = 0x00000080,   /* Enh Descriptor works  1=> 8 word descriptor */
-    DmaDescriptor4Words     = 0x00000000,   /* Enh Descriptor works  0=> 4 word descriptor */
+    DmaDescriptor8DWords    = 0x00000080,   /* Enh Descriptor 1 => 8 dwords / 32 bytes */
+    DmaDescriptor4DWords    = 0x00000000,   /* Enh Descriptor 0 => 4 dwords / 16 bytes */
 
-    DmaDescriptorSkip16     = 0x00000040,   /* (DSL)Descriptor skip length (no.of dwords) */
+    DmaDescriptorSkip16     = 0x00000040,   /* (DSL) Descriptor skip length (no. of dwords) */
     DmaDescriptorSkip8      = 0x00000020,   /* between two unchained descriptors */
     DmaDescriptorSkip4      = 0x00000010,
     DmaDescriptorSkip2      = 0x00000008,
@@ -514,18 +562,18 @@ enum DmaBusModeReg
     DmaResetOff             = 0x00000000,
 };
 
-/* DmaStatus = 0x0014, CSR5 - Dma status Register */
+/* DmaStatus = 0x0014, CSR5 - Dma Status Register */
 enum DmaStatusReg
 {
-    GmacPmtIntr             = 0x10000000,   /* (GPI)Gmac subsystem interrupt */
-    GmacMmcIntr             = 0x08000000,   /* (GMI)Gmac MMC subsystem interrupt */
+    GmacPmtIntr             = 0x10000000,   /* (GPI) Gmac subsystem interrupt */
+    GmacMmcIntr             = 0x08000000,   /* (GMI) Gmac MMC subsystem interrupt */
     GmacLineIntfIntr        = 0x04000000,   /* Line interface interrupt */
 
-    DmaErrorBit2            = 0x02000000,   /* (EB)Error bits 0-data buffer, 1-desc. access */
-    DmaErrorBit1            = 0x01000000,   /* (EB)Error bits 0-write trnsf, 1-read transfr */
-    DmaErrorBit0            = 0x00800000,   /* (EB)Error bits 0-Rx DMA, 1-Tx DMA */
+    DmaErrorBit2            = 0x02000000,   /* (EB) Error bits 0-data buffer, 1-desc. access */
+    DmaErrorBit1            = 0x01000000,   /* (EB) Error bits 0-write trnsf, 1-read transfr */
+    DmaErrorBit0            = 0x00800000,   /* (EB) Error bits 0-Rx DMA, 1-Tx DMA */
 
-    DmaTxState              = 0x00700000,   /* (TS)Transmit process state */
+    DmaTxState              = 0x00700000,   /* (TS) Transmit process state */
     DmaTxStopped            = 0x00000000,   /* Stopped - Reset or Stop Tx Command issued */
     DmaTxFetching           = 0x00100000,   /* Running - fetching the Tx descriptor */
     DmaTxWaiting            = 0x00200000,   /* Running - waiting for status */
@@ -533,7 +581,7 @@ enum DmaStatusReg
     DmaTxSuspended          = 0x00600000,   /* Suspended - Tx Descriptor unavailabe */
     DmaTxClosing            = 0x00700000,   /* Running - closing Rx descriptor */
 
-    DmaRxState              = 0x000E0000,   /* (RS)Receive process state */
+    DmaRxState              = 0x000E0000,   /* (RS) Receive process state */
     DmaRxStopped            = 0x00000000,   /* Stopped - Reset or Stop Rx Command issued */
     DmaRxFetching           = 0x00020000,   /* Running - fetching the Rx descriptor */
     DmaRxWaiting            = 0x00060000,   /* Running - waiting for packet */
@@ -541,8 +589,8 @@ enum DmaStatusReg
     DmaRxClosing            = 0x000A0000,   /* Running - closing descriptor */
     DmaRxQueuing            = 0x000E0000,   /* Running - queuing the recieve frame into host memory */
 
-    DmaIntNormal            = 0x00010000,   /* (NIS)Normal interrupt summary */
-    DmaIntAbnormal          = 0x00008000,   /* (AIS)Abnormal interrupt summary */
+    DmaIntNormal            = 0x00010000,   /* (NIS) Normal interrupt summary */
+    DmaIntAbnormal          = 0x00008000,   /* (AIS) Abnormal interrupt summary */
 
     DmaIntEarlyRx           = 0x00004000,   /* Early receive interrupt (Normal) */
     DmaIntBusError          = 0x00002000,   /* Fatal bus error (Abnormal) */
@@ -564,74 +612,104 @@ enum DmaControlReg
 {
     DmaDisableDropTcpCs     = 0x04000000,   /* (DT) Dis. drop. of tcp/ip CS error frames */
 
-    DmaStoreAndForward      = 0x02200000,   /* (SF)Store and forward */
-    DmaFlushTxFifo          = 0x00100000,   /* (FTF)Tx FIFO controller is reset to default */
+    DmaStoreAndForward      = 0x02200000,   /* (SF) Store and forward */
+    DmaFlushTxFifo          = 0x00100000,   /* (FTF) Tx FIFO controller is reset to default */
 
-    DmaTxThreshCtrl         = 0x0001C000,   /* (TTC)Controls thre Threh of MTL tx Fifo */
-    DmaTxThreshCtrl16       = 0x0001C000,   /* (TTC)Controls thre Threh of MTL tx Fifo 16 */
-    DmaTxThreshCtrl24       = 0x00018000,   /* (TTC)Controls thre Threh of MTL tx Fifo 24 */
-    DmaTxThreshCtrl32       = 0x00014000,   /* (TTC)Controls thre Threh of MTL tx Fifo 32 */
-    DmaTxThreshCtrl40       = 0x00010000,   /* (TTC)Controls thre Threh of MTL tx Fifo 40 */
-    DmaTxThreshCtrl256      = 0x0000c000,   /* (TTC)Controls thre Threh of MTL tx Fifo 256 */
-    DmaTxThreshCtrl192      = 0x00008000,   /* (TTC)Controls thre Threh of MTL tx Fifo 192 */
-    DmaTxThreshCtrl128      = 0x00004000,   /* (TTC)Controls thre Threh of MTL tx Fifo 128 */
-    DmaTxThreshCtrl64       = 0x00000000,   /* (TTC)Controls thre Threh of MTL tx Fifo 64 */
+    DmaTxThreshCtrl         = 0x0001C000,   /* (TTC) Controls thre Threh of MTL tx Fifo */
+    DmaTxThreshCtrl16       = 0x0001C000,   /* (TTC) Controls thre Threh of MTL tx Fifo 16 */
+    DmaTxThreshCtrl24       = 0x00018000,   /* (TTC) Controls thre Threh of MTL tx Fifo 24 */
+    DmaTxThreshCtrl32       = 0x00014000,   /* (TTC) Controls thre Threh of MTL tx Fifo 32 */
+    DmaTxThreshCtrl40       = 0x00010000,   /* (TTC) Controls thre Threh of MTL tx Fifo 40 */
+    DmaTxThreshCtrl256      = 0x0000c000,   /* (TTC) Controls thre Threh of MTL tx Fifo 256 */
+    DmaTxThreshCtrl192      = 0x00008000,   /* (TTC) Controls thre Threh of MTL tx Fifo 192 */
+    DmaTxThreshCtrl128      = 0x00004000,   /* (TTC) Controls thre Threh of MTL tx Fifo 128 */
+    DmaTxThreshCtrl64       = 0x00000000,   /* (TTC) Controls thre Threh of MTL tx Fifo 64 */
 
-    DmaTxStart              = 0x00002000,   /* (ST)Start/Stop transmission */
+    DmaTxStart              = 0x00002000,   /* (ST) Start/Stop transmission */
 
-    DmaRxFlowCtrlDeact      = 0x00401800,   /* (RFD)Rx flow control deact. threhold */
-    DmaRxFlowCtrlDeact1K    = 0x00000000,   /* (RFD)Rx flow control deact. threhold (1kbytes) */
-    DmaRxFlowCtrlDeact2K    = 0x00000800,   /* (RFD)Rx flow control deact. threhold (2kbytes) */
-    DmaRxFlowCtrlDeact3K    = 0x00001000,   /* (RFD)Rx flow control deact. threhold (3kbytes) */
-    DmaRxFlowCtrlDeact4K    = 0x00001800,   /* (RFD)Rx flow control deact. threhold (4kbytes) */
-    DmaRxFlowCtrlDeact5K    = 0x00400000,   /* (RFD)Rx flow control deact. threhold (4kbytes) */
-    DmaRxFlowCtrlDeact6K    = 0x00400800,   /* (RFD)Rx flow control deact. threhold (4kbytes) */
-    DmaRxFlowCtrlDeact7K    = 0x00401000,   /* (RFD)Rx flow control deact. threhold (4kbytes) */
+    DmaRxFlowCtrlDeact      = 0x00401800,   /* (RFD) Rx flow control deact. threhold */
+    DmaRxFlowCtrlDeact1K    = 0x00000000,   /* (RFD) Rx flow control deact. threhold (1kbytes) */
+    DmaRxFlowCtrlDeact2K    = 0x00000800,   /* (RFD) Rx flow control deact. threhold (2kbytes) */
+    DmaRxFlowCtrlDeact3K    = 0x00001000,   /* (RFD) Rx flow control deact. threhold (3kbytes) */
+    DmaRxFlowCtrlDeact4K    = 0x00001800,   /* (RFD) Rx flow control deact. threhold (4kbytes) */
+    DmaRxFlowCtrlDeact5K    = 0x00400000,   /* (RFD) Rx flow control deact. threhold (4kbytes) */
+    DmaRxFlowCtrlDeact6K    = 0x00400800,   /* (RFD) Rx flow control deact. threhold (4kbytes) */
+    DmaRxFlowCtrlDeact7K    = 0x00401000,   /* (RFD) Rx flow control deact. threhold (4kbytes) */
 
-    DmaRxFlowCtrlAct        = 0x00800600,   /* (RFA)Rx flow control Act. threhold */
-    DmaRxFlowCtrlAct1K      = 0x00000000,   /* (RFA)Rx flow control Act. threhold (1kbytes) */
-    DmaRxFlowCtrlAct2K      = 0x00000200,   /* (RFA)Rx flow control Act. threhold (2kbytes) */
-    DmaRxFlowCtrlAct3K      = 0x00000400,   /* (RFA)Rx flow control Act. threhold (3kbytes) */
-    DmaRxFlowCtrlAct4K      = 0x00000600,   /* (RFA)Rx flow control Act. threhold (4kbytes) */
-    DmaRxFlowCtrlAct5K      = 0x00800000,   /* (RFA)Rx flow control Act. threhold (5kbytes) */
-    DmaRxFlowCtrlAct6K      = 0x00800200,   /* (RFA)Rx flow control Act. threhold (6kbytes) */
-    DmaRxFlowCtrlAct7K      = 0x00800400,   /* (RFA)Rx flow control Act. threhold (7kbytes) */
+    DmaRxFlowCtrlAct        = 0x00800600,   /* (RFA) Rx flow control Act. threhold */
+    DmaRxFlowCtrlAct1K      = 0x00000000,   /* (RFA) Rx flow control Act. threhold (1kbytes) */
+    DmaRxFlowCtrlAct2K      = 0x00000200,   /* (RFA) Rx flow control Act. threhold (2kbytes) */
+    DmaRxFlowCtrlAct3K      = 0x00000400,   /* (RFA) Rx flow control Act. threhold (3kbytes) */
+    DmaRxFlowCtrlAct4K      = 0x00000600,   /* (RFA) Rx flow control Act. threhold (4kbytes) */
+    DmaRxFlowCtrlAct5K      = 0x00800000,   /* (RFA) Rx flow control Act. threhold (5kbytes) */
+    DmaRxFlowCtrlAct6K      = 0x00800200,   /* (RFA) Rx flow control Act. threhold (6kbytes) */
+    DmaRxFlowCtrlAct7K      = 0x00800400,   /* (RFA) Rx flow control Act. threhold (7kbytes) */
 
-    DmaRxThreshCtrl         = 0x00000018,   /* (RTC)Controls thre Threh of MTL rx Fifo */
-    DmaRxThreshCtrl64       = 0x00000000,   /* (RTC)Controls thre Threh of MTL tx Fifo 64 */
-    DmaRxThreshCtrl32       = 0x00000008,   /* (RTC)Controls thre Threh of MTL tx Fifo 32 */
-    DmaRxThreshCtrl96       = 0x00000010,   /* (RTC)Controls thre Threh of MTL tx Fifo 96 */
-    DmaRxThreshCtrl128      = 0x00000018,   /* (RTC)Controls thre Threh of MTL tx Fifo 128 */
+    DmaRxThreshCtrl         = 0x00000018,   /* (RTC) Controls thre Threh of MTL rx Fifo */
+    DmaRxThreshCtrl64       = 0x00000000,   /* (RTC) Controls thre Threh of MTL tx Fifo 64 */
+    DmaRxThreshCtrl32       = 0x00000008,   /* (RTC) Controls thre Threh of MTL tx Fifo 32 */
+    DmaRxThreshCtrl96       = 0x00000010,   /* (RTC) Controls thre Threh of MTL tx Fifo 96 */
+    DmaRxThreshCtrl128      = 0x00000018,   /* (RTC) Controls thre Threh of MTL tx Fifo 128 */
 
-    DmaEnHwFlowCtrl         = 0x00000100,   /* (EFC)Enable HW flow control */
-    DmaDisHwFlowCtrl        = 0x00000000,   /* Disable HW flow control */
+    DmaEnHwFlowCtrl         = 0x00000100,   /* (EFC) Enable HW flow control */
 
-    DmaFwdErrorFrames       = 0x00000080,   /* (FEF)Forward error frames */
-    DmaFwdUnderSzFrames     = 0x00000040,   /* (FUF)Forward undersize frames */
-    DmaTxSecondFrame        = 0x00000004,   /* (OSF)Operate on second frame */
-    DmaRxStart              = 0x00000002,   /* (SR)Start/Stop reception */
+    DmaFwdErrorFrames       = 0x00000080,   /* (FEF) Forward error frames */
+    DmaFwdUnderSzFrames     = 0x00000040,   /* (FUF) Forward undersize frames */
+    DmaTxSecondFrame        = 0x00000004,   /* (OSF) Operate on second frame */
+    DmaRxStart              = 0x00000002,   /* (SR) Start/Stop reception */
 };
 
-/* DmaInterrupt = 0x001C, CSR7 - Interrupt enable Register Layout */
-enum  DmaInterruptReg
+/* DmaInterrupt = 0x001C, CSR7 - Interrupt Enable Register */
+enum DmaInterruptReg
 {
-    DmaIeNormal             = DmaIntNormal,      /* Normal interrupt enable */
-    DmaIeAbnormal           = DmaIntAbnormal,    /* Abnormal interrupt enable */
+    DmaIeNormal             = DmaIntNormal,      /* 16 Normal interrupt enable */
+    DmaIeAbnormal           = DmaIntAbnormal,    /* 15 Abnormal interrupt enable */
 
-    DmaIeEarlyRx            = DmaIntEarlyRx,     /* Early receive interrupt enable */
-    DmaIeBusError           = DmaIntBusError,    /* Fatal bus error enable */
-    DmaIeEarlyTx            = DmaIntEarlyTx,     /* Early transmit interrupt enable */
-    DmaIeRxWdogTO           = DmaIntRxWdogTO,    /* Receive Watchdog Timeout enable */
-    DmaIeRxStopped          = DmaIntRxStopped,   /* Receive process stopped enable  */
-    DmaIeRxNoBuffer         = DmaIntRxNoBuffer,  /* Receive buffer unavailable enable */
-    DmaIeRxCompleted        = DmaIntRxCompleted, /* Completion of frame reception enable */
-    DmaIeTxUnderflow         = DmaIntTxUnderflow,  /* Transmit underflow enable */
+    DmaIeEarlyRx            = DmaIntEarlyRx,     /* 14 Early receive interrupt enable */
+    DmaIeBusError           = DmaIntBusError,    /* 13 Fatal bus error enable */
+    DmaIeEarlyTx            = DmaIntEarlyTx,     /* 10 Early transmit interrupt enable */
+    DmaIeRxWdogTO           = DmaIntRxWdogTO,    /*  9 Receive Watchdog Timeout enable */
+    DmaIeRxStopped          = DmaIntRxStopped,   /*  8 Receive process stopped enable  */
+    DmaIeRxNoBuffer         = DmaIntRxNoBuffer,  /*  7 Receive buffer unavailable enable */
+    DmaIeRxCompleted        = DmaIntRxCompleted, /*  6 Completion of frame reception enable */
+    DmaIeTxUnderflow         = DmaIntTxUnderflow,  /*  5 Transmit underflow enable */
+    DmaIeRxOverflow          = DmaIntRcvOverflow,  /*  4 Receive Buffer overflow interrupt */
+    DmaIeTxJabberTO         = DmaIntTxJabberTO,  /*  3 Transmit Jabber Timeout enable */
+    DmaIeTxNoBuffer         = DmaIntTxNoBuffer,  /*  2 Transmit buffer unavailable enable */
+    DmaIeTxStopped          = DmaIntTxStopped,   /*  1 Transmit process stopped enable */
+    DmaIeTxCompleted        = DmaIntTxCompleted, /*  0 Transmit completed enable */
+};
 
-    DmaIeRxOverflow          = DmaIntRcvOverflow,   /* Receive Buffer overflow interrupt */
-    DmaIeTxJabberTO         = DmaIntTxJabberTO,   /* Transmit Jabber Timeout enable */
-    DmaIeTxNoBuffer         = DmaIntTxNoBuffer,   /* Transmit buffer unavailable enable */
-    DmaIeTxStopped          = DmaIntTxStopped,    /* Transmit process stopped enable */
-    DmaIeTxCompleted        = DmaIntTxCompleted,  /* Transmit completed enable */
+/* DmaHWFeature = 0x0058, CSR22 - HW Feature Register */
+enum DmaHWFeatureReg
+{
+    DMA_HW_FEAT_MIISEL     = 0x00000001, /*  0 10/100 Mbps Support */
+    DMA_HW_FEAT_GMIISEL    = 0x00000002, /*  1 1000 Mbps Support */
+    DMA_HW_FEAT_HDSEL      = 0x00000004, /*  2 Half-Duplex Support */
+    DMA_HW_FEAT_EXTHASHEN  = 0x00000008, /*  3 Expanded DA Hash Filter */
+    DMA_HW_FEAT_HASHSEL    = 0x00000010, /*  4 HASH Filter */
+    DMA_HW_FEAT_ADDMAC     = 0x00000020, /*  5 Multiple MAC Addr Reg */
+    DMA_HW_FEAT_PCSSEL     = 0x00000040, /*  6 PCS registers */
+    DMA_HW_FEAT_L3L4FLTREN = 0x00000080, /*  7 Layer 3 & Layer 4 Feature */
+    DMA_HW_FEAT_SMASEL     = 0x00000100, /*  8 SMA (MDIO) Interface */
+    DMA_HW_FEAT_RWKSEL     = 0x00000200, /*  9 PMT Remote Wakeup */
+    DMA_HW_FEAT_MGKSEL     = 0x00000400, /* 10 PMT Magic Packet */
+    DMA_HW_FEAT_MMCSEL     = 0x00000800, /* 11 RMON Module */
+    DMA_HW_FEAT_TSVER1SEL  = 0x00001000, /* 12 Only IEEE 1588-2002 Timestamp */
+    DMA_HW_FEAT_TSVER2SEL  = 0x00002000, /* 13 IEEE 1588-2008 Advanced Timestamp */
+    DMA_HW_FEAT_EEESEL     = 0x00004000, /* 14 Energy Efficient Ethernet */
+    DMA_HW_FEAT_AVSEL      = 0x00008000, /* 15 AV Feature */
+    DMA_HW_FEAT_TXCOESEL   = 0x00010000, /* 16 Checksum Offload in Tx */
+    DMA_HW_FEAT_RXTYP1COE  = 0x00020000, /* 17 IP COE (Type 1) in Rx */
+    DMA_HW_FEAT_RXTYP2COE  = 0x00040000, /* 18 IP COE (Type 2) in Rx */
+    DMA_HW_FEAT_RXFIFOSIZE = 0x00080000, /* 19 Rx FIFO > 2048 Bytes */
+    DMA_HW_FEAT_RXCHCNT    = 0x00300000, /* 20-21 Number of additional Rx Channels */
+    DMA_HW_FEAT_TXCHCNT    = 0x00c00000, /* 22-23 Number of additional Tx Channels */
+    DMA_HW_FEAT_ENHDESSEL  = 0x01000000, /* 24 Alternate Enhanced Descriptor */
+    DMA_HW_FEAT_INTTSEN    = 0x02000000, /* 25 Timestamping with Internal System Time */
+    DMA_HW_FEAT_FLEXIPPSEN = 0x04000000, /* 26 Flexible Pulse-Per-Second Output */
+    DMA_HW_FEAT_SAVLANINS  = 0x08000000, /* 27 Source Addr or VLAN Insertion */
+    DMA_HW_FEAT_ACTPHYIF   = 0x70000000, /* 28-30 Active or Selected PHY interface */
 };
 
 enum DmaDescriptorStatus
@@ -643,30 +721,30 @@ enum DmaDescriptorStatus
     DescFrameLengthMask   = 0x3FFF0000,   /* (FL)Receive descriptor frame length */
     DescFrameLengthShift  = 16,
 
-    DescError             = 0x00008000,   /* (ES)Error summary bit  - OR of the follo */
-    DescRxTruncated       = 0x00004000,   /* (DE)Rx - no more descriptors for receive frame */
-    DescSAFilterFail      = 0x00002000,   /* (SAF)Rx - SA Filter Fail for the received frame */
-    DescRxLengthError     = 0x00001000,   /* (LE)Rx - frm size not matching with len field */
-    DescRxDamaged         = 0x00000800,   /* (OE)Rx - frm was damaged due to buffer overflow */
-    DescRxVLANTag         = 0x00000400,   /* (VLAN)Rx - received frame is a VLAN frame */
-    DescRxFirst           = 0x00000200,   /* (FS)Rx - first descriptor of the frame */
-    DescRxLast            = 0x00000100,   /* (LS)Rx - last descriptor of the frame */
-    DescRxLongFrame       = 0x00000080,   /* (Giant Frame)Rx - frame is longer than 1518/1522 */
-    DescRxCollision       = 0x00000040,   /* (LC)Rx - late collision occurred during reception */
-    DescRxFrameEther      = 0x00000020,   /* (FT)Rx - Frame type - Ethernet, otherwise 802.3 */
-    DescRxWatchdog        = 0x00000010,   /* (RWT)Rx - watchdog timer expired during reception */
-    DescRxMiiError        = 0x00000008,   /* (RE)Rx - error reported by MII interface */
-    DescRxDribbling       = 0x00000004,   /* (DE)Rx - frame contains non int multiple of 8 bits */
-    DescRxCrc             = 0x00000002,   /* (CE)Rx - CRC error */
+    DescError             = 0x00008000,   /* (ES) Error summary bit  - OR of the follo */
+    DescRxTruncated       = 0x00004000,   /* (DE) Rx - no more descriptors for receive frame */
+    DescSAFilterFail      = 0x00002000,   /* (SAF) Rx - SA Filter Fail for the received frame */
+    DescRxLengthError     = 0x00001000,   /* (LE) Rx - frm size not matching with len field */
+    DescRxDamaged         = 0x00000800,   /* (OE) Rx - frm was damaged due to buffer overflow */
+    DescRxVLANTag         = 0x00000400,   /* (VLAN) Rx - received frame is a VLAN frame */
+    DescRxFirst           = 0x00000200,   /* (FS) Rx - first descriptor of the frame */
+    DescRxLast            = 0x00000100,   /* (LS) Rx - last descriptor of the frame */
+    DescRxLongFrame       = 0x00000080,   /* (Giant Frame) Rx - frame is longer than 1518/1522 */
+    DescRxCollision       = 0x00000040,   /* (LC) Rx - late collision occurred during reception */
+    DescRxFrameEther      = 0x00000020,   /* (FT) Rx - Frame type - Ethernet, otherwise 802.3 */
+    DescRxWatchdog        = 0x00000010,   /* (RWT) Rx - watchdog timer expired during reception */
+    DescRxMiiError        = 0x00000008,   /* (RE) Rx - error reported by MII interface */
+    DescRxDribbling       = 0x00000004,   /* (DE) Rx - frame contains non int multiple of 8 bits */
+    DescRxCrc             = 0x00000002,   /* (CE) Rx - CRC error */
     DescRxMacMatch        = 0x00000001,   /* (RX MAC Address) Rx mac address reg(1 to 15)match */
 
     DescRxEXTsts          = 0x00000001,   /* Extended Status Available (RDES4) */
 
-    DescTxIntEnable       = 0x40000000,   /* (IC)Tx - interrupt on completion */
-    DescTxLast            = 0x20000000,   /* (LS)Tx - Last segment of the frame */
-    DescTxFirst           = 0x10000000,   /* (FS)Tx - First segment of the frame */
-    DescTxDisableCrc      = 0x08000000,   /* (DC)Tx - Add CRC disabled (first segment only) */
-    DescTxDisablePadd     = 0x04000000,   /* (DP)disable padding, added by - reyaz */
+    DescTxIntEnable       = 0x40000000,   /* (IC) Tx - interrupt on completion */
+    DescTxLast            = 0x20000000,   /* (LS) Tx - Last segment of the frame */
+    DescTxFirst           = 0x10000000,   /* (FS) Tx - First segment of the frame */
+    DescTxDisableCrc      = 0x08000000,   /* (DC) Tx - Add CRC disabled (first segment only) */
+    DescTxDisablePadd     = 0x04000000,   /* (DP) disable padding, added by - reyaz */
 
     DescTxCisMask         = 0x00c00000,   /* Tx checksum offloading control mask */
     DescTxCisBypass       = 0x00000000,   /* Checksum bypass */
@@ -674,37 +752,37 @@ enum DmaDescriptorStatus
     DescTxCisTcpOnlyCs    = 0x00800000,   /* TCP/UDP/ICMP checksum. Pseudo header checksum is assumed to be present */
     DescTxCisTcpPseudoCs  = 0x00c00000,   /* TCP/UDP/ICMP checksum fully in hardware including pseudo header */
 
-    TxDescEndOfRing       = 0x00200000,   /* (TER)End of descriptors ring */
-    TxDescChain           = 0x00100000,   /* (TCH)Second buffer address is chain address */
+    TxDescEndOfRing       = 0x00200000,   /* (TER) End of descriptors ring */
+    TxDescChain           = 0x00100000,   /* (TCH) Second buffer address is chain address */
 
     DescRxChkBit0         = 0x00000001,   /* Rx - Rx Payload Checksum Error */
-    DescRxChkBit7         = 0x00000080,   /* (IPC CS ERROR)Rx - Ipv4 header checksum error */
-    DescRxChkBit5         = 0x00000020,   /* (FT)Rx - Frame type - Ethernet, otherwise 802.3 */
+    DescRxChkBit7         = 0x00000080,   /* (IPC CS ERROR) Rx - Ipv4 header checksum error */
+    DescRxChkBit5         = 0x00000020,   /* (FT) Rx - Frame type - Ethernet, otherwise 802.3 */
 
     DescRxTSavail         = 0x00000080,   /* Time stamp available */
-    DescRxFrameType       = 0x00000020,   /* (FT)Rx - Frame type - Ethernet, otherwise 802.3 */
+    DescRxFrameType       = 0x00000020,   /* (FT) Rx - Frame type - Ethernet, otherwise 802.3 */
 
     DescTxIpv4ChkError    = 0x00010000,   /* (IHE) Tx Ip header error */
-    DescTxTimeout         = 0x00004000,   /* (JT)Tx - Transmit jabber timeout */
-    DescTxFrameFlushed    = 0x00002000,   /* (FF)Tx - DMA/MTL flushed the frame due to SW flush */
+    DescTxTimeout         = 0x00004000,   /* (JT) Tx - Transmit jabber timeout */
+    DescTxFrameFlushed    = 0x00002000,   /* (FF) Tx - DMA/MTL flushed the frame due to SW flush */
     DescTxPayChkError     = 0x00001000,   /* (PCE) Tx Payload checksum Error */
-    DescTxLostCarrier     = 0x00000800,   /* (LC)Tx - carrier lost during tramsmission */
-    DescTxNoCarrier       = 0x00000400,   /* (NC)Tx - no carrier signal from the tranceiver */
-    DescTxLateCollision   = 0x00000200,   /* (LC)Tx - transmission aborted due to collision */
-    DescTxExcCollisions   = 0x00000100,   /* (EC)Tx - transmission aborted after 16 collisions */
-    DescTxVLANFrame       = 0x00000080,   /* (VF)Tx - VLAN-type frame */
+    DescTxLostCarrier     = 0x00000800,   /* (LC) Tx - carrier lost during tramsmission */
+    DescTxNoCarrier       = 0x00000400,   /* (NC) Tx - no carrier signal from the tranceiver */
+    DescTxLateCollision   = 0x00000200,   /* (LC) Tx - transmission aborted due to collision */
+    DescTxExcCollisions   = 0x00000100,   /* (EC) Tx - transmission aborted after 16 collisions */
+    DescTxVLANFrame       = 0x00000080,   /* (VF) Tx - VLAN-type frame */
 
-    DescTxCollMask        = 0x00000078,   /* (CC)Tx - Collision count */
+    DescTxCollMask        = 0x00000078,   /* (CC) Tx - Collision count */
     DescTxCollShift       = 3,
 
-    DescTxExcDeferral     = 0x00000004,   /* (ED)Tx - excessive deferral */
-    DescTxUnderflow       = 0x00000002,    /* (UF)Tx - late data arrival from the memory */
-    DescTxDeferred        = 0x00000001,   /* (DB)Tx - frame transmision deferred */
+    DescTxExcDeferral     = 0x00000004,   /* (ED) Tx - excessive deferral */
+    DescTxUnderflow        = 0x00000002,   /* (UF) Tx - late data arrival from the memory */
+    DescTxDeferred        = 0x00000001,   /* (DB) Tx - frame transmision deferred */
 
     // DmaDescriptorLength     length word of DMA descriptor
-    RxDisIntCompl        = 0x80000000,    /* (Disable Rx int on completion) */
-    RxDescEndOfRing       = 0x00008000,   /* (TER)End of descriptors ring */
-    RxDescChain           = 0x00004000,   /* (TCH)Second buffer address is chain address */
+    RxDisIntCompl         = 0x80000000,   /* (Disable Rx int on completion) */
+    RxDescEndOfRing       = 0x00008000,   /* (TER) End of descriptors ring */
+    RxDescChain           = 0x00004000,   /* (TCH) Second buffer address is chain address */
 
     DescSize2Mask         = 0x1FFF0000,   /* (TBS2) Buffer 2 size */
     DescSize2Shift        = 16,
@@ -738,7 +816,6 @@ enum DmaDescriptorStatus
     DescRxIpPayloadUDP    = 0x00000001,   /* UDP */
     DescRxIpPayloadTCP    = 0x00000002,   /* TCP */
     DescRxIpPayloadICMP   = 0x00000003,   /* ICMP */
-
 };
 
 enum RxDescCOEEncode
@@ -751,18 +828,6 @@ enum RxDescCOEEncode
     RxPayLoadChkError          = 5,    /* Bit(5:7:0)=>5 Payload checksum error detected for Ipv4/Ipv6 frames */
     RxIpHdrChkError            = 6,    /* Bit(5:7:0)=>6 Ip header checksum error detected for Ipv4 frames */
     RxIpHdrPayLoadChkError     = 7,    /* Bit(5:7:0)=>7 Payload & Ip header checksum error detected for Ipv4/Ipv6 frames */
-};
-
-// interrupt type
-enum synopGMACDmaIntEnum
-{
-    synopGMACDmaRxNormal   = 0x01,   /* normal receiver interrupt */
-    synopGMACDmaRxAbnormal = 0x02,   /* abnormal receiver interrupt */
-    synopGMACDmaRxStopped  = 0x04,   /* receiver stopped */
-    synopGMACDmaTxNormal   = 0x08,   /* normal transmitter interrupt */
-    synopGMACDmaTxAbnormal = 0x10,   /* abnormal transmitter interrupt */
-    synopGMACDmaTxStopped  = 0x20,   /* transmitter stopped */
-    synopGMACDmaError      = 0x80,   /* Dma engine error */
 };
 
 enum MMC_ENABLE
@@ -950,76 +1015,112 @@ enum MMC_TX_INTR_MASK_AND_STATUS_BIT_DESCRIPTIONS
 
 enum InitialRegisters
 {
-    // Full-duplex mode with perfect filter on
-    GmacConfigInitFdx1000   = GmacWatchdogEnable | GmacJabberEnable         | GmacFrameBurstEnable   | GmacJumboFrameDisable
-                           | GmacSelectGmii     | GmacEnableRxOwn          | GmacLoopbackOff
-                           | GmacFullDuplex     | GmacRetryEnable          | GmacPadCrcStripDisable
-                           | GmacBackoffLimit0  | GmacDeferralCheckDisable | GmacTxEnable           | GmacRxEnable,
+    DmaIntEnable           = DmaIntNormal      | // 16
+                             DmaIntAbnormal    | // 15
+                             DmaIntBusError    | // 13
+                             DmaIntRxStopped   | // 8
+                             DmaIntRxNoBuffer  | // 7
+                             DmaIntRxCompleted | // 6
+                             DmaIntTxUnderflow  | // 5
+                             DmaIntRcvOverflow  | // 4
+                             DmaIntTxNoBuffer  | // 2
+                             DmaIntTxStopped   | // 1
+                             DmaIntTxCompleted,  // 0
 
-    // Full-duplex mode with perfect filter on
-    GmacConfigInitFdx110    = GmacWatchdogEnable | GmacJabberEnable         | GmacFrameBurstEnable   | GmacJumboFrameDisable
-                           | GmacSelectMii      | GmacEnableRxOwn          | GmacLoopbackOff
-                           | GmacFullDuplex     | GmacRetryEnable          | GmacPadCrcStripDisable
-                           | GmacBackoffLimit0  | GmacDeferralCheckDisable | GmacTxEnable           | GmacRxEnable,
-
-    // Full-duplex mode
-    GmacFrameFilterInitFdx = GmacFilterOn           | GmacPassControl0      | GmacBroadcastEnable    | GmacSrcAddrFilterDisable
-                           | GmacMulticastFilterOn  | GmacDestAddrFilterNor | GmacMcastHashFilterOff
-                           | GmacPromiscuousModeOff | GmacUcastHashFilterOff,
-
-    // Full-duplex mode
-    GmacFlowControlInitFdx = GmacUnicastPauseFrameOff | GmacRxFlowControlEnable | GmacTxFlowControlEnable,
-
-    // Full-duplex mode
-    GmacGmiiAddrInitFdx    = GmiiCsrClk2,
-
-    // Half-duplex mode with perfect filter on
-    GmacConfigInitHdx1000   = GmacWatchdogEnable | GmacJabberEnable         | GmacFrameBurstEnable   | GmacJumboFrameDisable
-                           | GmacSelectGmii     | GmacDisableRxOwn         | GmacLoopbackOff
-                           | GmacHalfDuplex     | GmacRetryEnable          | GmacPadCrcStripDisable
-                           | GmacBackoffLimit0  | GmacDeferralCheckDisable | GmacTxEnable           | GmacRxEnable,
-
-    // Half-duplex mode with perfect filter on
-    GmacConfigInitHdx110    = GmacWatchdogEnable  | GmacJabberEnable         | GmacFrameBurstEnable  | GmacJumboFrameDisable
-                           | GmacSelectMii      | GmacDisableRxOwn         | GmacLoopbackOff
-                           | GmacHalfDuplex     | GmacRetryEnable          | GmacPadCrcStripDisable
-                           | GmacBackoffLimit0  | GmacDeferralCheckDisable | GmacTxEnable           | GmacRxEnable,
-
-    // Half-duplex mode
-    GmacFrameFilterInitHdx = GmacFilterOn          | GmacPassControl0        | GmacBroadcastEnable    | GmacSrcAddrFilterDisable
-                           | GmacMulticastFilterOn | GmacDestAddrFilterNor   | GmacMcastHashFilterOff
-                           | GmacUcastHashFilterOff| GmacPromiscuousModeOff,
-
-    // Half-duplex mode
-    GmacFlowControlInitHdx = GmacUnicastPauseFrameOff | GmacRxFlowControlDisable | GmacTxFlowControlDisable,
-
-    // Half-duplex mode
-    GmacGmiiAddrInitHdx    = GmiiCsrClk2,
-   
-    DmaBusModeInit         = DmaFixedBurstEnable | DmaBurstLength8 | DmaDescriptorSkip1 | DmaResetOff,
-
-    // 1000 Mb/s mode
-    DmaControlInit1000     = DmaStoreAndForward,
-
-    // 100 Mb/s mode
-    DmaControlInit100      = DmaStoreAndForward,
-
-    // 10 Mb/s mode
-    DmaControlInit10       = DmaStoreAndForward,
-
-    // Interrupt groups
-    DmaIntErrorMask        = DmaIntBusError,    // Error
-    DmaIntRxAbnMask        = DmaIntRxNoBuffer,  // receiver abnormal interrupt
-    DmaIntRxNormMask       = DmaIntRxCompleted, // receiver normal interrupt
-    DmaIntRxStoppedMask    = DmaIntRxStopped,   // receiver stopped
-    DmaIntTxAbnMask        = DmaIntTxUnderflow,  // transmitter abnormal interrupt
-    DmaIntTxNormMask       = DmaIntTxCompleted, // transmitter normal interrupt
-    DmaIntTxStoppedMask    = DmaIntTxStopped,   // transmitter stopped
-
-    DmaIntEnable           = DmaIeNormal     | DmaIeAbnormal    | DmaIntErrorMask
-                           | DmaIntRxAbnMask | DmaIntRxNormMask | DmaIntRxStoppedMask
-                           | DmaIntTxAbnMask | DmaIntTxNormMask | DmaIntTxStoppedMask,
     DmaIntDisable          = 0,
 };
+
+
+
+uint32_t eth_mac_read_reg(uint64_t base, uint32_t offset);
+
+void eth_mac_write_reg(uint64_t base, uint32_t offset, uint32_t data);
+
+void eth_mac_set_bits(uint64_t base, uint32_t offset, uint32_t pos);
+
+void eth_mac_clear_bits(uint64_t base, uint32_t offset, uint32_t pos);
+
+uint16_t eth_mdio_read(uint64_t regbase, uint32_t phybase, uint32_t offset);
+
+void eth_mdio_write(uint64_t regbase, uint32_t phybase, uint32_t offset, uint16_t data);
+
+void eth_mac_set_addr(struct net_device *gmacdev, uint8_t *addr);
+
+void eth_gmac_get_mac_addr(struct net_device *gmacdev, uint8_t *addr);
+
+void eth_dma_reset(struct net_device *gmacdev);
+
+void eth_gmac_resume_dma_rx(struct net_device *gmacdev);
+
+void eth_gmac_resume_dma_tx(struct net_device *gmacdev);
+
+void eth_dma_enable_rx(struct net_device *gmacdev);
+
+void eth_dma_enable_tx(struct net_device *gmacdev);
+
+void eth_gmac_disable_dma_tx(struct net_device *gmacdev);
+
+void eth_gmac_disable_dma_rx(struct net_device *gmacdev);
+
+void eth_gmac_enable_rx(struct net_device *gmacdev);
+
+void eth_gmac_enable_tx(struct net_device *gmacdev);
+
+void eth_gmac_disable_rx(struct net_device *gmacdev);
+
+void eth_gmac_disable_tx(struct net_device *gmacdev);
+
+void eth_dma_clear_curr_irq(struct net_device *gmacdev);
+
+void eth_dma_clear_irq(struct net_device *gmacdev, uint32_t value);
+
+void eth_dma_enable_interrupt(struct net_device *gmacdev, uint32_t value);
+
+void eth_dma_disable_interrupt_all(struct net_device *gmacdev);
+
+void eth_dma_disable_interrupt(struct net_device *gmacdev, uint32_t value);
+
+void eth_gmac_disable_mmc_irq(struct net_device *gmacdev);
+
+void eth_dma_bus_mode_init(struct net_device *gmacdev);
+
+void eth_dma_control_init(struct net_device *gmacdev);
+
+void eth_dma_axi_bus_mode_init(struct net_device *gmacdev);
+
+void eth_dma_reg_init(struct net_device *gmacdev);
+
+void eth_gmac_back_off_limit(struct net_device *gmacdev, uint32_t value);
+
+void eth_gmac_config_init(struct net_device *gmacdev);
+
+void eth_gmac_set_pass_control(struct net_device *gmacdev, uint32_t value);
+
+void eth_gmac_frame_filter(struct net_device *gmacdev);
+
+void eth_gmac_flow_control(struct net_device *gmacdev);
+
+void eth_gmac_reg_init(struct net_device *gmacdev);
+
+void eth_setup_tx_desc_queue(struct net_device *gmacdev, uint32_t desc_num);
+
+void eth_setup_rx_desc_queue(struct net_device *gmacdev, uint32_t desc_num);
+
+bool eth_get_desc_owner(DmaDesc *desc);
+
+uint32_t eth_get_rx_length(DmaDesc *desc);
+
+bool eth_is_tx_desc_valid(DmaDesc *desc);
+
+bool eth_is_desc_empty(DmaDesc *desc);
+
+bool eth_is_rx_desc_valid(DmaDesc *desc);
+
+bool eth_is_last_rx_desc(DmaDesc *desc);
+
+bool eth_is_last_tx_desc(DmaDesc *desc);
+
+// void eth_mac_get_hw_feature(struct net_device *gmacdev);
+
 
 #endif // __LS2K_ETH_DEV_H__

@@ -43,6 +43,3 @@ void rt_hw_context_switch_interrupt(rt_ubase_t from, rt_ubase_t to, rt_thread_t 
     return;
 }
 #endif /* end of RT_USING_SMP */
-
-
-

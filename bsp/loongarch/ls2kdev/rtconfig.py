@@ -20,7 +20,7 @@ else:
     print('Please make sure your toolchains is GNU GCC!')
     exit(0)
 
-# switch for better debug or performance
+# switch for debug or release
 BUILD = 'debug'
 
 if PLATFORM == 'gcc':
@@ -37,28 +37,32 @@ if PLATFORM == 'gcc':
     OBJCPY  = PREFIX + 'objcopy'
     READELF = PREFIX + 'readelf'
 
-    DEVICE  = ' -mcmodel=normal -march=loongarch64 -mabi=lp64d '
-    CFLAGS  = DEVICE + ' -ffreestanding -Wno-cpp -fno-common -ffunction-sections -fdata-sections -fstrict-volatile-bitfields -fdiagnostics-color=always '
-    AFLAGS  = ' -c' + DEVICE + ' -x assembler-with-cpp -D__ASSEMBLY__ '
-    LFLAGS  = DEVICE + ' -nostartfiles -Wl,--gc-sections,-Map=rtthread.map,-cref,-u,_start -T link.lds ' + ' -lsupc++ -lgcc -static '
-    CPATH = ''
-    LPATH = ''
-    
+    # 2k1000la dont support hardware unaligned access
+    DEVICE = ' -mcmodel=normal -march=loongarch64 -mabi=lp64d -mstrict-align '
+    CFLAGS = DEVICE + ' -ffreestanding -Wno-cpp -fno-common -ffunction-sections -fdata-sections -fstrict-volatile-bitfields -fdiagnostics-color=always '
+    AFLAGS = ' -c' + DEVICE + ' -x assembler-with-cpp -D__ASSEMBLY__ '
+    LFLAGS = DEVICE + ' -nostartfiles -Wl,--gc-sections,-Map=rtthread.map,-cref,-u,_start -T link.lds ' + ' -lsupc++ -lgcc -static '
+    CPATH  = ''
+    LPATH  = ''
+
     if BUILD == 'debug':
-        CFLAGS += ' -O0 -ggdb -fvar-tracking '
+        CFLAGS += ' -O2 -ggdb -fvar-tracking '
         AFLAGS += ' -ggdb'
     else:
         CFLAGS += ' -O2 -Os'
-    
-    CXXFLAGS = CFLAGS
 
-    CFLAGS  += ' -Wno-incompatible-pointer-types -Wno-implicit-function-declaration -Wno-int-conversion '
+    CFLAGS += ' -Wno-incompatible-pointer-types -Wno-implicit-function-declaration -Wno-int-conversion '
+
+    # CFLAGS += ' -fpic -flto'
+    CFLAGS += ' -fpic '
+
+    CXXFLAGS = CFLAGS
 
 DUMP_ACTION = OBJDUMP + ' -D -S $TARGET > rtthread.asm\n'
 READELF_ACTION = READELF + ' -a $TARGET > rtthread.map\n'
 OBJCPY_ACTION = OBJCPY + ' -O binary $TARGET rtthread.bin\n'
 SIZE_ACTION = SIZE + ' $TARGET \n'
-GEN_UIMAGE = MKIMAGE + ' -A loongarch -O linux -T kernel -C none -a  0x9000000000200000 -e 0x9000000000200000 -n "rtthread-2k1000la" -d rtthread.bin uImage\n'
+GEN_UIMAGE = MKIMAGE + ' -A loongarch -O linux -T kernel -C none -a  0x9000000098000000 -e 0x9000000098000000 -n "rtthread-2k1000la" -d rtthread.bin uImage\n'
 
 POST_ACTION = DUMP_ACTION + READELF_ACTION + OBJCPY_ACTION + SIZE_ACTION + GEN_UIMAGE
 

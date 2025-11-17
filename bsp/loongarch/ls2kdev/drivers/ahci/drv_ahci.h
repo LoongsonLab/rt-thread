@@ -1,55 +1,85 @@
-#ifndef __LS2K_DRV_AHCI_H__
-#define __LS2K_DRV_AHCI_H__
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-#include <ahci_platform.h>
-#include <libahci.h>
-#include <blk_device.h>
+typedef struct ahci_cmd_hdr {
+  uint32_t opts;
+  uint32_t status;
+  uint32_t tbl_addr_lo;
+  uint32_t tbl_addr_hi;
+  uint32_t reserved[4];
+} ahci_cmd_hdr;
 
-#define AHCI_GET_CMD_SLOT(c) ((c) ? plat_ffs(c) : 0)
+typedef struct ahci_sg {
+  uint32_t addr_lo;
+  uint32_t addr_hi;
+  uint32_t reserved;
+  uint32_t flags_size;
+} ahci_sg;
 
-#define MAX_DATA_BYTES_PER_SG (4 * 1024 * 1024)
-#define MAX_BYTES_PER_TRANS (AHCI_MAX_SG * MAX_DATA_BYTES_PER_SG)
+typedef struct ahci_ioport {
+  uint64_t port_mmio;
+  struct ahci_cmd_hdr *cmd_slot;
+  uint64_t cmd_slot_dma;
+  uint64_t rx_fis;
+  uint64_t rx_fis_dma;
+  uint64_t cmd_tbl;
+  uint64_t cmd_tbl_dma;
+  struct ahci_sg *cmd_tbl_sg;
+} ahci_ioport;
 
-#define ARCH_DMA_MINALIGN 1024
-#define __aligned(x) __attribute__((__aligned__(x)))
+typedef struct ahci_blk_dev {
+  bool lba48;
+  uint64_t lba;
+  uint64_t blksz;
+  uint32_t queue_depth;
+  uint8_t product[41];
+  uint8_t serial[21];
+  uint8_t revision[9];
+} ahci_blk_dev;
 
-#define ALIGN_1(x, a) __ALIGN_MASK((x), (typeof(x))(a)-1)
-#define __ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
+typedef struct ahci_device {
+  uint64_t mmio_base;
+  uint32_t flags;
+  uint32_t cap;
+  uint32_t cap2;
+  uint32_t version;
+  uint32_t port_map;
+  uint32_t pio_mask;
+  uint32_t udma_mask;
+  uint8_t n_ports;
+  uint32_t port_map_linkup;
+  struct ahci_ioport port[32];
+  uint8_t port_idx;
+  struct ahci_blk_dev blk_dev;
+} ahci_device;
 
-#define ROUND(a, b) (((a) + (b)-1) & ~((b)-1))
+extern uint64_t ahci_malloc_align(uint64_t size, uint32_t align);
 
-#define PAD_COUNT(s, pad) (((s)-1) / (pad) + 1)
-#define PAD_SIZE(s, pad) (PAD_COUNT(s, pad) * pad)
+extern void ahci_mdelay(uint32_t ms);
 
-#define ALLOC_ALIGN_BUFFER_PAD(type, name, size, align, pad)                         \
-    char __##name[ROUND(PAD_SIZE((size) * sizeof(type), pad), align) + (align - 1)]; \
-                                                                                     \
-    type *name = (type *)ALIGN_1((uint64_t)__##name, align)
+extern void *ahci_memcpy(void *dest, const void *src, uint64_t n);
 
-#define ALLOC_ALIGN_BUFFER(type, name, size, align) \
-    ALLOC_ALIGN_BUFFER_PAD(type, name, size, align, 1)
+extern void *ahci_memset(void *s, int32_t c, uint64_t count);
 
-#define ALLOC_CACHE_ALIGN_BUFFER_PAD(type, name, size, pad) \
-    ALLOC_ALIGN_BUFFER_PAD(type, name, size, ARCH_DMA_MINALIGN, pad)
+extern uint64_t ahci_phys_to_uncached(uint64_t va);
 
-#define ALLOC_CACHE_ALIGN_BUFFER(type, name, size) \
-    ALLOC_ALIGN_BUFFER(type, name, size, ARCH_DMA_MINALIGN)
+extern int32_t ahci_printf(const char *fmt, ...);
 
+extern int32_t ahci_init(struct ahci_device *ahci_dev);
 
+extern uint64_t ahci_sata_read_common(const struct ahci_device *ahci_dev,
+                                    uint64_t blknr,
+                                    uint32_t blkcnt,
+                                    void *buffer);
 
-int dwc_ahsata_probe(struct rt_device *dev);
-int dwc_ahsata_scan(struct rt_device *dev);
-int dwc_ahsata_port_status(struct rt_device *dev, int port);
-int dwc_ahci_start_ports(struct ahci_uc_priv *uc_priv);\
+extern uint64_t ahci_sata_write_common(const struct ahci_device *ahci_dev,
+                                     uint64_t blknr,
+                                     uint32_t blkcnt,
+                                     void *buffer);
 
-int ahci_host_init(struct ahci_uc_priv *uc_priv);
-void ahci_print_info(struct ahci_uc_priv *uc_priv);
+extern void ahci_sync_dcache(void);
 
-uint64_t sata_read_common(struct ahci_uc_priv *uc_priv,
-                          struct blk_device *desc, uint64_t blknr,
-                          uint64_t blkcnt, void *buffer);
-uint64_t sata_write_common(struct ahci_uc_priv *uc_priv,
-                           struct blk_device *desc, uint64_t blknr,
-                           uint64_t blkcnt, const void *buffer);
-
-#endif // __LS2K_DRV_AHCI_H__
+extern uint64_t ahci_virt_to_phys(uint64_t va);

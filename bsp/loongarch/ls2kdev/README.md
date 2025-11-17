@@ -16,7 +16,7 @@ RT-Thread有完整版和Nano版，对于资源受限的微控制器（MCU）系�
 
 ## LS2K1000LA适配
 
-本仓库在原有`bsp/qemu-virt-loongarch64`的RT-Thread移植基础上，添加了`bsp/loongarch/ls2kdev`的编译目标，对`2k1000`星云板做了基础适配，包括基本定义、中断控制器、串口、时钟等，并在此基础上添加了**GMAC网口**和**AHCI硬盘控制器**的驱动移植与适配
+本仓库在原有`bsp/qemu-virt-loongarch64`的RT-Thread移植基础上，添加了`bsp/loongarch/ls2kdev`的编译目标，对龙芯2K1000LA星云板做了基础适配，包括基本定义、中断控制器、串口、时钟等，并在此基础上添加了**GMAC网口**和**AHCI硬盘控制器**的驱动移植与适配
 
 考虑到`qemu-virt-loongarch64`和龙芯2K系列嵌入式板卡之间的差异，以及功能完备性，对原有指令集相关代码做了一定的补充与修改
 
@@ -28,7 +28,7 @@ RT-Thread有完整版和Nano版，对于资源受限的微控制器（MCU）系�
 
 [LoongsonLab/2k1000-materials](https://github.com/LoongsonLab/2k1000-materials)
 
-qemu-2k1000是基于qemu 3.1.0适配的系统模拟器，处理器和外设方面与2k1000对齐，但细节上存在一定的问题，例如部分外设寄存器的取值、特权指令与CSR寄存器的定义与行为等，需要注意，目前系统适配均在该qemu上进行，物理板卡上的运行需要做进一步的测试
+qemu-2k1000是基于qemu 3.1.0适配的系统模拟器，处理器和外设方面与2k1000对齐，但细节上存在一定的问题，例如部分外设寄存器的取值、特权指令与CSR寄存器的定义与行为等
 
 Github中提供了qemu-2k1000的软件压缩包，压缩包中的一些脚本是默认解压到/tmp中执行的，其中带有qemu-system-loongarch64等可执行文件、用于引导的uboot镜像、用于制作文件系统的文件/脚本、以及用于启动qemu的脚本
 
@@ -42,7 +42,18 @@ linux中的网口和硬盘驱动代码是最为完备的，但均与其系统框
 
 目前驱动适配仅迈开第一步，基础功能做了初步实现，但精力有限，在驱动功能性、稳定性、性能、代码规范性等方面还有着较多欠缺，欢迎测试与反馈
 
-## 运行与测试
+### Rust与C驱动切换
+
+当前rtthread中并没有提供原生rust适配框架，因此这里采用了手动提供.a文件链接的方式，默认使用C驱动
+
+Rust代码编译好的.a文件存放在 drivers/libls2k_driver.a
+
+此外需要修改如下三个config文件
+- dirvers/SConscript
+- drivers/ahci/SConscript
+- drivers/net/SConscript
+
+## 运行与测试（QEMU）
 
 在2K1000LA上从零开始到运行RT-Thread并测试（qemu），整个流程较长，需要准备交叉工具链、运行环境（qemu）、uboot引导、系统镜像、文件系统等，不过在RT-Thread上，由于有比较多的软件包支持，对系统与驱动进行简易测试还是比较方便的
 

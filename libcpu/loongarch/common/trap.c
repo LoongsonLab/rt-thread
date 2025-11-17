@@ -10,6 +10,7 @@
  * 2025-03-23     LoongsonLab  add soft and hardware ptw
  */
 
+#include "rtcompiler.h"
 #include "rttypes.h"
 #include <rtthread.h>
 #include <rthw.h>
@@ -100,15 +101,15 @@ rt_weak void platform_irq_init()
 
 rt_weak void platform_generic_irq()
 {
-	rt_uint64_t hw_irq_pending = (read_csr_estat() & CSR_ESTAT_IS_HW);
-	rt_uint64_t hw_irq_index = 0;
+    rt_uint64_t hw_irq_pending = (read_csr_estat() & CSR_ESTAT_IS_HW);
+    rt_uint64_t hw_irq_index = 0;
 
-	while (hw_irq_pending) {
-		rt_uint64_t bit = ffs(hw_irq_pending);
-		hw_irq_index = bit - 1 ;
+    while (hw_irq_pending) {
+        rt_uint64_t bit = ffs(hw_irq_pending);
+        hw_irq_index = bit - 1 ;
 
-		irq_desc[hw_irq_index].handler(hw_irq_index, irq_desc[hw_irq_index].param);
-		hw_irq_pending &= ~(1UL << ( bit - 1));
+        irq_desc[hw_irq_index].handler(hw_irq_index, irq_desc[hw_irq_index].param);
+        hw_irq_pending &= ~(1UL << ( bit - 1));
 
 #ifdef RT_USING_INTERRUPT_INFO0
         rt_snprintf(irq_desc[hw_irq_index].name, RT_NAME_MAX - 1, "%s", name);
@@ -117,9 +118,9 @@ rt_weak void platform_generic_irq()
 
 #if DEBUG_TRAP_TRACE
 // #if 1
-    	rt_kprintf("     Hardware Exception ID: %d\n", hw_irq_index);
+        rt_kprintf("     Hardware Exception ID: %d\n", hw_irq_index);
 #endif
-	}
+    }
 }
 
 
@@ -148,24 +149,25 @@ static void rt_hw_exception_default_handle(void)
 }
 
 void *exception_table[EXCCODE_INT_START] = {
-	[0 ... EXCCODE_INT_START - 1] = rt_hw_exception_default_handle,
+    [0 ... EXCCODE_INT_START - 1] = rt_hw_exception_default_handle,
 
 #ifdef RT_USING_SMART
-	[EXCCODE_TLBI]		= handle_tlb_load_ptw,
-	[EXCCODE_TLBL]		= handle_tlb_load_ptw,
-	[EXCCODE_TLBS]		= handle_tlb_store_ptw,
-	[EXCCODE_TLBM]		= handle_tlb_modify_ptw,
-	[EXCCODE_SYS]		= handle_sys,
+    [EXCCODE_TLBI]       = handle_tlb_load_ptw,
+    [EXCCODE_TLBL]       = handle_tlb_load_ptw,
+    [EXCCODE_TLBS]       = handle_tlb_store_ptw,
+    [EXCCODE_TLBM]       = handle_tlb_modify_ptw,
+    [EXCCODE_SYS]        = handle_sys,
 #endif
 
-	[EXCCODE_ADE]		= handle_ade,
-	[EXCCODE_ALE]		= handle_ale,
-	[EXCCODE_BCE]		= handle_bce,
-	[EXCCODE_BP]		= handle_bp,
-	[EXCCODE_INE]		= handle_ri,
-	[EXCCODE_IPE]		= handle_ri,
-	[EXCCODE_FPDIS]		= handle_fpu,
-	[EXCCODE_FPE]		= handle_fpe,
+    [EXCCODE_ADE]        = handle_ade,
+    [EXCCODE_ALE]        = handle_ale,
+    [EXCCODE_BCE]        = handle_bce,
+    [EXCCODE_SYS]        = handle_sys,
+    [EXCCODE_BP]         = handle_bp,
+    [EXCCODE_INE]        = handle_ri,
+    [EXCCODE_IPE]        = handle_ri,
+    [EXCCODE_FPDIS]      = handle_fpu,
+    [EXCCODE_FPE]        = handle_fpe,
 };
 
 
@@ -178,17 +180,18 @@ void do_ade(struct pt_regs *regs)
     rt_kprintf("    0x%lx\n", regs->r_era);
     rt_kprintf("EsubCode:\n");
     rt_kprintf("    0x%lx\n", ((read_csr_estat() & CSR_ESTAT_ESUBCODE) >> CSR_ESTAT_ESUBCODE_SHIFT));
+    rt_kprintf("bvaddr: 0x%lx\n", regs->r_bvaddr);
     while(1);
 }
 
 void do_ale(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_ale exception occurred!!!\n");
-    rt_kprintf("Ra :\n");
-    rt_kprintf("    0x%lx\n", regs->r_ra);
-    rt_kprintf("Era:\n");
-    rt_kprintf("    0x%lx\n", regs->r_era);
-	while(1);
+    rt_kprintf("UN-handled do_ale exception occurred!!!\n");
+    rt_kprintf("ra: 0x%lx\n", regs->r_ra);
+    rt_kprintf("era: 0x%lx\n", regs->r_era);
+    rt_kprintf("bvaddr: 0x%lx\n", regs->r_bvaddr);
+    while(1);
+    // emulate_load_store_insn(regs, regs->r_bvaddr, regs->r_era);
 }
 
 void do_bce(struct pt_regs *regs)
@@ -236,6 +239,11 @@ void do_fpu(struct pt_regs *regs)
 
 void do_ri(struct pt_regs *regs)
 {
+    rt_uint64_t era = regs->r_era;
+    rt_uint32_t opcode = *(rt_uint32_t *)(era);
+    rt_uint32_t bcode = (opcode & 0x7fff);
+    rt_kprintf("era: %016lx, opcode: %08x\n", era, opcode);
+
     rt_kprintf("UN-handled do_ri exception occurred!!!\n");
     rt_kprintf(" Ra:\n");
     rt_kprintf("    0x%lx\n", regs->r_ra);
@@ -244,64 +252,63 @@ void do_ri(struct pt_regs *regs)
     while (1);
 }
 
-
 void do_rt_dispatch_trap(struct pt_regs *regs)
 {
-	rt_uint64_t estat;
-	rt_thread_t thread = rt_thread_self();
+    rt_uint64_t estat;
+    rt_thread_t thread = rt_thread_self();
 
-	estat = read_csr_estat() & CSR_ESTAT_IS;
+    estat = read_csr_estat() & CSR_ESTAT_IS;
 #if DEBUG_TRAP_TRACE
-	rt_kprintf("Exception Thread: 0x%lx, pt_regs: 0x%lx\n", thread, regs);
+    rt_kprintf("Exception Thread: 0x%lx, pt_regs: 0x%lx\n", thread, regs);
 #endif
-	if ((estat & CSR_ESTAT_IS_IPI))
-	{
+    if ((estat & CSR_ESTAT_IS_IPI))
+    {
 #if DEBUG_TRAP_TRACE
-		rt_kprintf("---------- Enter Interrupt ----------\n");
-		rt_kprintf("      IPI Exception occurred!        \n");
+        rt_kprintf("---------- Enter Interrupt ----------\n");
+        rt_kprintf("      IPI Exception occurred!        \n");
 #endif
-		while (1);
-	} else if ((estat & CSR_ESTAT_IS_TI))
-	{
+        while (1);
+    } else if ((estat & CSR_ESTAT_IS_TI))
+    {
 #if DEBUG_TRAP_TRACE
-		rt_kprintf("---------- Enter Interrupt ----------\n");
-		rt_kprintf("     Timer Exception occurred!       \n");
+        rt_kprintf("---------- Enter Interrupt ----------\n");
+        rt_kprintf("     Timer Exception occurred!       \n");
 #endif
-		rt_interrupt_enter();
+        rt_interrupt_enter();
         write_csr_tintclear(CSR_TINTCLR_TI);
-		rt_hw_timer_handler();
-		rt_interrupt_leave();
-		return;
-	} else if ((estat & CSR_ESTAT_IS_HW))
-	{
+        rt_hw_timer_handler();
+        rt_interrupt_leave();
+        return;
+    } else if ((estat & CSR_ESTAT_IS_HW))
+    {
 #if DEBUG_TRAP_TRACE
-		rt_kprintf("---------- Enter Interrupt ----------\n");
-		rt_kprintf("     Hardware Exception occurred: 0x%lx\n", estat);
+        rt_kprintf("---------- Enter Interrupt ----------\n");
+        rt_kprintf("     Hardware Exception occurred: 0x%lx\n", estat);
 #endif
         // fixme
         // CSR_ESTAT_IS_HW is read-only
         csr_xchg32(0x0, CSR_ESTAT_IS_HW, LOONGARCH_CSR_ESTAT);
-		rt_interrupt_enter();
-		platform_generic_irq();
-		rt_interrupt_leave();
-		return;
-	} else {
+        rt_interrupt_enter();
+        platform_generic_irq();
+        rt_interrupt_leave();
+        return;
+    } else {
 #if DEBUG_TRAP_TRACE
-		rt_kprintf("---------- Enter Interrupt ----------\n");
-		rt_kprintf("UN-handled rt_dispatch_trap exception occurred!!!\n");
+        rt_kprintf("---------- Enter Interrupt ----------\n");
+        rt_kprintf("UN-handled rt_dispatch_trap exception occurred!!!\n");
 #endif
-		while(1);
-	}
+        while(1);
+    }
 }
 
 #ifdef RT_USING_SMART
 void do_page_fault(struct pt_regs *regs)
 {
-	rt_ubase_t id = (read_csr_estat() & CSR_ESTAT_EXC ) >> CSR_ESTAT_EXC_SHIFT;
-	rt_ubase_t estat = read_csr_estat();
+    rt_ubase_t id = (read_csr_estat() & CSR_ESTAT_EXC ) >> CSR_ESTAT_EXC_SHIFT;
+    rt_ubase_t estat = read_csr_estat();
     struct rt_lwp *lwp;
     rt_base_t saved_stat;
-	/* user page fault */
+    /* user page fault */
     enum rt_mm_fault_op fault_op;
     enum rt_mm_fault_type fault_type;
     switch (id)
@@ -337,7 +344,7 @@ void do_page_fault(struct pt_regs *regs)
 
         saved_stat = rt_hw_interrupt_disable();
         if (!lwp)
-        	goto bad_varea;
+            goto bad_varea;
         if (rt_aspace_fault_try_fix(lwp->aspace, &msg)) {
             if (id == MMU_STAT_EXCODE_PME) {
                 // Page existed
@@ -348,20 +355,20 @@ void do_page_fault(struct pt_regs *regs)
     }
 
 bad_varea:
-	// if return from rt_aspace_fault_try_fix is false, 
+    // if return from rt_aspace_fault_try_fix is false, 
     // but if PME, this seems as valid operation
-	// if (fault_op == MM_FAULT_OP_WRITE)
-	// 	goto good_varea;
-	rt_hw_interrupt_enable(saved_stat);
+    // if (fault_op == MM_FAULT_OP_WRITE)
+    //     goto good_varea;
+    rt_hw_interrupt_enable(saved_stat);
     rt_thread_t cur_thr = rt_thread_self();
     struct rt_hw_backtrace_frame frame = {.fp = regs->r_fp, .pc = regs->r_era};
-	rt_kprintf("fp = %p, era = %p\n", frame.fp, frame.pc);
+    rt_kprintf("fp = %p, era = %p\n", frame.fp, frame.pc);
     lwp_backtrace_frame(cur_thr, &frame);
     sys_exit_group(-1);
 
 good_varea:
-	rt_hw_interrupt_enable(saved_stat);
-	// update tlb and validate page
+    rt_hw_interrupt_enable(saved_stat);
+    // update tlb and validate page
     rt_hw_tlb_invalidate_all_local();
     return;
 }
@@ -369,16 +376,16 @@ good_varea:
 #else
 void do_page_fault(struct pt_regs *regs)
 {
-	rt_kprintf("UN-handled do_page_fault exception occurred!!!\n");
-	while(1);
+    rt_kprintf("UN-handled do_page_fault exception occurred!!!\n");
+    while(1);
 }
 #endif
 
-#define SZ_4K		0x00001000
-#define SZ_8K		0x00002000
-#define SZ_16K		0x00004000
-#define SZ_32K		0x00008000
-#define SZ_64K		0x00010000
+#define SZ_4K       0x00001000
+#define SZ_8K       0x00002000
+#define SZ_16K      0x00004000
+#define SZ_32K      0x00008000
+#define SZ_64K      0x00010000
 #define VECSIZE     0x200
 
 rt_align(SZ_64K) long exception_handlers[VECSIZE * 128 / sizeof(long)];
@@ -388,60 +395,58 @@ unsigned long tlbrentry;
 
 static void setup_vint_size(unsigned int size)
 {
-	unsigned int vs;
-	//TODO:
-	vs = size;
-	csr_xchg32(vs<<CSR_ECFG_VS_SHIFT, CSR_ECFG_VS, LOONGARCH_CSR_ECFG);
+    unsigned int vs;
+    //TODO:
+    vs = size;
+    csr_xchg32(vs<<CSR_ECFG_VS_SHIFT, CSR_ECFG_VS, LOONGARCH_CSR_ECFG);
 }
 
 static void configure_exception_vector(void)
 {
-	eentry    = (unsigned long)exception_handlers;
-	tlbrentry = (unsigned long)exception_handlers + 80*VECSIZE;
+    eentry    = (unsigned long)exception_handlers;
+    tlbrentry = (unsigned long)exception_handlers + 80*VECSIZE;
 
-	csr_write64(eentry, LOONGARCH_CSR_EENTRY);
-	csr_write64(eentry, LOONGARCH_CSR_MERRENTRY);
+    csr_write64(eentry, LOONGARCH_CSR_EENTRY);
+    csr_write64(eentry, LOONGARCH_CSR_MERRENTRY);
 #ifdef LOONGARCH_SOFTWARE_PTW
-	csr_write64(tlbrentry, LOONGARCH_CSR_TLBRENTRY);
+    csr_write64(tlbrentry, LOONGARCH_CSR_TLBRENTRY);
 #endif
 }
 
 /* Install CPU exception handler */
 void set_handler(unsigned long offset, void *addr, unsigned long size)
 {
-	memcpy((void *)(eentry + offset), addr, size);
-	// clear ICache
-	__asm__ volatile ("\tibar 0\n"::);
+    memcpy((void *)(eentry + offset), addr, size);
+    // clear ICache
+    __asm__ volatile ("\tibar 0\n"::);
 }
 
 void trap_init(void) 
 {
-	unsigned int i;
+    unsigned int i;
 
-	setup_vint_size(7);
+    setup_vint_size(7);
 
-	configure_exception_vector();
+    configure_exception_vector();
 
-	// copy exception handler to exception vector
+    // copy exception handler to exception vector
 
-	/* Set interrupt vector handler */
-	for (i = EXCCODE_INT_START; i <= EXCCODE_INT_END; i++)
-		set_handler(i * VECSIZE, handle_vint, VECSIZE);
+    /* Set interrupt vector handler */
+    for (i = EXCCODE_INT_START; i <= EXCCODE_INT_END; i++)
+        set_handler(i * VECSIZE, handle_vint, VECSIZE);
 
-	/* Set exception vector handler */
-	for (i = EXCCODE_ADE; i <= EXCCODE_BTDIS; i++)
-		set_handler(i * VECSIZE, exception_table[i], VECSIZE);
+    /* Set exception vector handler */
+    for (i = EXCCODE_ADE; i <= EXCCODE_BTDIS; i++)
+        set_handler(i * VECSIZE, exception_table[i], VECSIZE);
 
-	for (int i = EXCCODE_TLBL; i <= EXCCODE_TLBPE; i++)
-		set_handler(i * VECSIZE, exception_table[i], VECSIZE);
+    for (int i = EXCCODE_TLBL; i <= EXCCODE_TLBPE; i++)
+        set_handler(i * VECSIZE, exception_table[i], VECSIZE);
 
 #ifdef LOONGARCH_SOFTWARE_PTW
-	memcpy((void *)tlbrentry, handle_tlb_sw_refill, 0x80);
-	__asm__ volatile ("\tibar 0\n"::);
+    memcpy((void *)tlbrentry, handle_tlb_sw_refill, 0x80);
+    __asm__ volatile ("\tibar 0\n"::);
 #endif
 
-	set_csr_ecfg(ECFGF_SIP0 | ECFGF_SIP1 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IP3 | ECFGF_IP4 | ECFGF_IP5 | ECFGF_IP6 | ECFGF_IP7 | ECFGF_IPI | ECFGF_PMC);
+    set_csr_ecfg(ECFGF_SIP0 | ECFGF_SIP1 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IP3 | ECFGF_IP4 | ECFGF_IP5 | ECFGF_IP6 | ECFGF_IP7 | ECFGF_IPI | ECFGF_PMC);
 
 }
-
-

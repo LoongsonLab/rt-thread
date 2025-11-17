@@ -178,7 +178,6 @@
 /* end of elm-chan's FatFs, Generic FAT Filesystem Module */
 #define RT_USING_DFS_DEVFS
 #define RT_USING_DFS_ROMFS
-#define RT_USING_DFS_CROMFS
 #define RT_USING_DFS_TMPFS
 #define RT_USING_DFS_MQUEUE
 /* end of DFS: device virtual file system */
@@ -238,7 +237,6 @@
 /* Docking with protocol stacks */
 
 #define SAL_USING_LWIP
-#define SAL_USING_TLS
 /* end of Docking with protocol stacks */
 #define SAL_USING_POSIX
 #define RT_USING_NETDEV
@@ -268,20 +266,20 @@
 #define RT_LWIP_UDP
 #define RT_LWIP_TCP
 #define RT_LWIP_RAW
-#define RT_MEMP_NUM_NETCONN 8
-#define RT_LWIP_PBUF_NUM 16
-#define RT_LWIP_RAW_PCB_NUM 4
-#define RT_LWIP_UDP_PCB_NUM 4
-#define RT_LWIP_TCP_PCB_NUM 4
-#define RT_LWIP_TCP_SEG_NUM 40
-#define RT_LWIP_TCP_SND_BUF 8196
-#define RT_LWIP_TCP_WND 8196
+#define RT_MEMP_NUM_NETCONN 16
+#define RT_LWIP_PBUF_NUM 256
+#define RT_LWIP_RAW_PCB_NUM 16
+#define RT_LWIP_UDP_PCB_NUM 16
+#define RT_LWIP_TCP_PCB_NUM 16
+#define RT_LWIP_TCP_SEG_NUM 64
+#define RT_LWIP_TCP_SND_BUF 16384
+#define RT_LWIP_TCP_WND 65535
 #define RT_LWIP_TCPTHREAD_PRIORITY 10
-#define RT_LWIP_TCPTHREAD_MBOX_SIZE 8
-#define RT_LWIP_TCPTHREAD_STACKSIZE 8192
+#define RT_LWIP_TCPTHREAD_MBOX_SIZE 16
+#define RT_LWIP_TCPTHREAD_STACKSIZE 16384
 #define RT_LWIP_ETHTHREAD_PRIORITY 12
-#define RT_LWIP_ETHTHREAD_STACKSIZE 8192
-#define RT_LWIP_ETHTHREAD_MBOX_SIZE 8
+#define RT_LWIP_ETHTHREAD_STACKSIZE 16384
+#define RT_LWIP_ETHTHREAD_MBOX_SIZE 16
 #define LWIP_NETIF_STATUS_CALLBACK 1
 #define LWIP_NETIF_LINK_CALLBACK 1
 #define RT_LWIP_NETIF_NAMESIZE 6
@@ -291,6 +289,7 @@
 #define LWIP_SO_RCVBUF 1
 #define LWIP_SO_LINGER 0
 #define LWIP_NETIF_LOOPBACK 0
+#define RT_LWIP_STATS
 #define RT_LWIP_USING_PING
 #define RT_USING_AT
 #define AT_SW_VERSION_NUM 0x10301
@@ -382,6 +381,14 @@
 /* end of CYW43439 WiFi */
 /* end of Wi-Fi */
 #define PKG_USING_NETUTILS
+#define PKG_NETUTILS_TFTP
+#define PKG_NETUTILS_IPERF
+#define IPERF_THREAD_STACK_SIZE 16384
+#define PKG_NETUTILS_NETIO
+#define PKG_NETUTILS_TELNET
+#define PKG_NETUTILS_TCPDUMP
+#define PKG_NETUTILS_TCPDUMP_PRINT
+#define PKG_NETUTILS_TCPDUMP_DBG
 #define PKG_USING_NETUTILS_LATEST_VERSION
 #define PKG_NETUTILS_VER_NUM 0x99999
 
@@ -392,15 +399,6 @@
 
 /* security packages */
 
-#define PKG_USING_MBEDTLS
-
-/* Select Root Certificate */
-
-/* end of Select Root Certificate */
-#define MBEDTLS_AES_ROM_TABLES
-#define MBEDTLS_ECP_WINDOW_SIZE 2
-#define MBEDTLS_SSL_MAX_CONTENT_LEN 3584
-#define PKG_USING_MBEDTLS_V2281
 /* end of security packages */
 
 /* language packages */
@@ -524,8 +522,6 @@
 /* end of entertainment: terminal games and other interesting software packages */
 #define PKG_USING_OPTPARSE
 #define PKG_USING_OPTPARSE_LATEST_VERSION
-#define PKG_USING_ZLIB
-#define PKG_USING_ZLIB_LATEST_VERSION
 /* end of miscellaneous packages */
 
 /* Arduino libraries */
