@@ -488,6 +488,10 @@
 /* GD32 Drivers */
 
 /* end of GD32 Drivers */
+
+/* HPMicro SDK */
+
+/* end of HPMicro SDK */
 /* end of HAL & SDK Drivers */
 
 /* sensors drivers */

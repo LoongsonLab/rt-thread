@@ -85,7 +85,7 @@
 #define LS2K_INTENSET_REG(i)   (PHYS_TO_UNCACHED(0x1fe01400) + 0x28 + (((i) > 31) ? 0x40 : 0))
 #define LS2K_INTENCLR_REG(i)   (PHYS_TO_UNCACHED(0x1fe01400) + 0x2c + (((i) > 31) ? 0x40 : 0))
 #define LS2K_INTPOL_REG(i)     (PHYS_TO_UNCACHED(0x1fe01400) + 0x30 + (((i) > 31) ? 0x40 : 0))
-#define LS2K_INTEDGE_REG(i)    (PHYS_TO_UNCACHED(0x1fe01400) + 0x34 + (((i) > 31 ) ? 0x40 : 0))
+#define LS2K_INTEDGE_REG(i)    (PHYS_TO_UNCACHED(0x1fe01400) + 0x34 + (((i) > 31) ? 0x40 : 0))
 #define LS2K_BOUNCE_REG(i)     (PHYS_TO_UNCACHED(0x1fe01400) + 0x38 + (((i) > 31) ? 0x40 : 0))
 #define LS2K_INTAUTO_REG(i)    (PHYS_TO_UNCACHED(0x1fe01400) + 0x3c + (((i) > 31) ? 0x40 : 0))
 

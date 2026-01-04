@@ -8,7 +8,7 @@ CROSS_TOOL = 'gcc'
 RTT_ROOT = os.getenv('RTT_ROOT') or os.path.join(os.getcwd(), '..', '..' , '..')
 
 # PATH to mkimage
-MKIMAGE = '/opt/mkimage/mkimage'
+MKIMAGE = '/home/airxs/user/loongsonedu/software/u-boot/tools/mkimage'
 
 if os.getenv('RTT_CC'):
      CROSS_TOOL = os.getenv('RTT_CC')
@@ -58,7 +58,7 @@ if PLATFORM == 'gcc':
 
     CXXFLAGS = CFLAGS
 
-DUMP_ACTION = OBJDUMP + ' -D -S $TARGET > rtthread.asm\n'
+DUMP_ACTION = OBJDUMP + ' -d -S $TARGET > rtthread.asm\n'
 READELF_ACTION = READELF + ' -a $TARGET > rtthread.map\n'
 OBJCPY_ACTION = OBJCPY + ' -O binary $TARGET rtthread.bin\n'
 SIZE_ACTION = SIZE + ' $TARGET \n'
